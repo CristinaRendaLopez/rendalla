@@ -15,7 +15,7 @@ var svc *dynamodb.DynamoDB
 
 func init() {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2"), // Cambia a tu región
+		Region: aws.String("eu-north-1"),
 	})
 	if err != nil {
 		log.Fatalf("unable to start session: %v", err)
@@ -28,11 +28,11 @@ type Song struct {
 	Name string `json:"name"`
 }
 
-func HandleRequest() (*Song, error) {
+func HandleRequest() (map[string]interface{}, error) {
 	id := "some-id"
 
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String("MyAppTable"),
+		TableName: aws.String("RendallaTable"),
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
 				S: aws.String(id),
@@ -44,17 +44,22 @@ func HandleRequest() (*Song, error) {
 	}
 
 	if result.Item == nil {
-		return nil, fmt.Errorf("Could not find the item")
+		return nil, fmt.Errorf("Could not find the item", err)
 	}
 
 	var song Song
+
 	err = dynamodbattribute.UnmarshalMap(result.Item, &song)
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal item: %v", err)
 	}
 
-	// Devuelve la canción recuperada
-	return &song, nil
+	response := map[string]interface{}{
+		"statusCode": 200,
+		"body":       song,
+	}
+
+	return response, nil
 }
 
 func main() {
