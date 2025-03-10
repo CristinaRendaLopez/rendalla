@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -28,7 +29,7 @@ type Song struct {
 	Name string `json:"name"`
 }
 
-func HandleRequest() (map[string]interface{}, error) {
+func HandleRequest() (events.APIGatewayProxyResponse, error) {
 	id := "some-id"
 
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
@@ -40,26 +41,46 @@ func HandleRequest() (map[string]interface{}, error) {
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to find item %v", err)
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       `{"error": "Error al acceder a DynamoDB: ` + err.Error() + `"}`,
+		}, nil
 	}
 
 	if result.Item == nil {
-		return nil, fmt.Errorf("could not find the item")
+		return events.APIGatewayProxyResponse{
+			StatusCode: 200,
+			Body:       "[]",
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+		}, nil
 	}
 
 	var song Song
-
 	err = dynamodbattribute.UnmarshalMap(result.Item, &song)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal item: %v", err)
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       `{"error": "Error al procesar los datos"}`,
+		}, nil
 	}
 
-	response := map[string]interface{}{
-		"statusCode": 200,
-		"body":       song,
+	body, err := json.Marshal(song)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       `{"error": "Error al generar la respuesta JSON"}`,
+		}, nil
 	}
 
-	return response, nil
+	return events.APIGatewayProxyResponse{
+		StatusCode: 200,
+		Body:       string(body),
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+	}, nil
 }
 
 func main() {
