@@ -87,7 +87,16 @@ jobs:
       - name: Deploy Backend to AWS Lambda
         run: |
           aws lambda update-function-code --function-name RendallaBackend --zip-file fileb://backend/function.zip
+      
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+      
       - name: Deploy Frontend to AWS S3
         run: |
+          if [ ! -d "frontend/dist" ]; then echo "Error: frontend/dist directory not found"; exit 1; fi
           aws s3 sync frontend/dist s3://rendalla-bucket --delete
           aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+      
