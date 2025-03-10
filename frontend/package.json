@@ -4,9 +4,11 @@
     "description": "Frontend for Rendalla",
     "main": "src/main.js",
     "scripts": {
-      "test": "echo \"No tests specified\" && exit 0"
+        "build": "vite build",
+        "dev": "vite",
+        "test": "echo \"No test specified\" && exit 0"
     },
-    "dependencies": {},
-    "devDependencies": {}
-  }
-  
+    "devDependencies": {
+        "vite": "^6.2.1"
+    }
+}
