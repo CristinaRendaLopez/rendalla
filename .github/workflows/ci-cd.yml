@@ -74,6 +74,7 @@ jobs:
           ls -la
           if [ ! -d "backend" ]; then echo "Error: backend directory not found"; exit 1; fi
           cd backend
+          go mod tidy
           GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
           zip function.zip bootstrap
 
