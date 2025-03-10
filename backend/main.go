@@ -44,7 +44,7 @@ func HandleRequest() (map[string]interface{}, error) {
 	}
 
 	if result.Item == nil {
-		return nil, fmt.Errorf("Could not find the item", err)
+		return nil, fmt.Errorf("could not find the item")
 	}
 
 	var song Song
