@@ -38,26 +38,7 @@ The repository is organized into different folders to separate the backend, fron
 - **LICENSE** → **GPLv3 License**, ensuring the code remains open-source.
 - **.gitignore** → Files to be ignored by Git.
 
-## Architecture
-
-The application follows a **serverless architecture** on **AWS**, ensuring scalability and cost-effectiveness.
-
-### Backend
-- Implemented in **Go**, running on **AWS Lambda**.
-- Exposed via **AWS API Gateway**.
-
-### Storage
-- **DynamoDB**: Stores metadata about sheet music and songs.
-- **S3**: Stores sheet music files (PDFs) and optional audio files.
-
-### Security
-- **JWT authentication** for the admin panel.
-- **CORS configuration** to allow only trusted origins.
-- **Rate limiting and input sanitization** to prevent abuse.
-
-### CI/CD
-- **GitHub Actions** for automated testing and deployment.
-- Automatic deployment of:
-  - **Backend** → AWS Lambda.
-  - **Frontend** → AWS S3 via CloudFront.
-
+## Tech Stack
+- **Backend**: Go, AWS Lambda, DynamoDB, API Gateway.
+- **Frontend**: Vue.js, Vite.
+- **Infrastructure**: AWS CloudFormation.
