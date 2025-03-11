@@ -103,7 +103,7 @@ jobs:
 
       - name: Deploy Backend to AWS Lambda
         run: |
-          aws lambda update-function-code --function-name RendallaBackend --zip-file fileb://backend/function.zip
+          aws lambda update-function-code --function-name RendallaBackend --zip-file fileb://backend/build/function.zip
       
       - name: Build Frontend
         run: |
