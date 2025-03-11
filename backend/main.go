@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
+	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/rendalla/backend/bootstrap"
-	"github.com/rendalla/backend/handlers"
 )
 
 var svc = bootstrap.InitAWS()
