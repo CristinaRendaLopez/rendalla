@@ -89,7 +89,9 @@ jobs:
           if [ ! -d "backend" ]; then echo "Error: backend directory not found"; exit 1; fi
           cd backend
           go mod tidy
-          GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
+          mkdir -p build  # Crear la carpeta temporal si no existe
+          GOOS=linux GOARCH=amd64 go build -o build/bootstrap main.go
+          cd build
           zip function.zip bootstrap
 
       - name: Configure AWS credentials
