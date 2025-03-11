@@ -13,25 +13,25 @@ func GetSongHandler(svc *dynamodb.DynamoDB, req events.APIGatewayProxyRequest) (
 	id := req.PathParameters["id"]
 	if id == "" {
 		log.Println("Missing song ID in request")
-		return createErrorResponse(400, "Missing song ID")
+		return CreateErrorResponse(400, "Missing song ID")
 	}
 
 	log.Printf("Fetching song with ID: %s", id)
 	song, err := services.GetSongByID(svc, id)
 	if err != nil {
 		log.Printf("Error fetching song from DynamoDB: %v", err)
-		return createErrorResponse(500, "Error fetching song")
+		return CreateErrorResponse(500, "Error fetching song")
 	}
 
 	if song == nil {
 		log.Printf("Song not found: %s", id)
-		return createErrorResponse(404, "Song not found")
+		return CreateErrorResponse(404, "Song not found")
 	}
 
 	body, err := json.Marshal(song)
 	if err != nil {
 		log.Printf("Error generating JSON response: %v", err)
-		return createErrorResponse(500, "Error generating JSON response")
+		return CreateErrorResponse(500, "Error generating JSON response")
 	}
 
 	return events.APIGatewayProxyResponse{
