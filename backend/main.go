@@ -19,7 +19,7 @@ func init() {
 		Region: aws.String("eu-north-1"),
 	})
 	if err != nil {
-		log.Fatalf("unable to start session: %v", err)
+		log.Fatalf("Error starting AWS session: %v", err)
 	}
 	svc = dynamodb.New(sess)
 }
@@ -31,6 +31,7 @@ type Song struct {
 
 func HandleRequest() (events.APIGatewayProxyResponse, error) {
 	id := "some-id"
+	log.Printf("Fetching song with ID: %s", id)
 
 	result, err := svc.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String("RendallaTable"),
@@ -41,13 +42,15 @@ func HandleRequest() (events.APIGatewayProxyResponse, error) {
 		},
 	})
 	if err != nil {
+		log.Printf("Error accessing DynamoDB: %v", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       `{"error": "Error al acceder a DynamoDB: ` + err.Error() + `"}`,
+			Body:       `{"error": "Error accessing DynamoDB: ` + err.Error() + `"}`,
 		}, nil
 	}
 
 	if result.Item == nil {
+		log.Println("No data found in DynamoDB")
 		return events.APIGatewayProxyResponse{
 			StatusCode: 200,
 			Body:       "[]",
@@ -60,20 +63,23 @@ func HandleRequest() (events.APIGatewayProxyResponse, error) {
 	var song Song
 	err = dynamodbattribute.UnmarshalMap(result.Item, &song)
 	if err != nil {
+		log.Printf("Error processing data: %v", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       `{"error": "Error al procesar los datos"}`,
+			Body:       `{"error": "Error processing data"}`,
 		}, nil
 	}
 
 	body, err := json.Marshal(song)
 	if err != nil {
+		log.Printf("Error generating JSON response: %v", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
-			Body:       `{"error": "Error al generar la respuesta JSON"}`,
+			Body:       `{"error": "Error generating JSON response"}`,
 		}, nil
 	}
 
+	log.Printf("Song found: %+v", song)
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(body),
@@ -84,5 +90,6 @@ func HandleRequest() (events.APIGatewayProxyResponse, error) {
 }
 
 func main() {
+	log.Println("Lambda initialized successfully")
 	lambda.Start(HandleRequest)
 }
