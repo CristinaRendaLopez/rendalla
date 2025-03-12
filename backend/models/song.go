@@ -5,5 +5,7 @@ type Song struct {
 	Title      string   `json:"title"`
 	Author     string   `json:"author"`
 	Genres     []string `json:"genres"`
-	UploadDate string   `json:"upload_date"`
+	YoutubeURL string   `json:"youtube_url,omitempty"`
+	CreatedAt  string   `json:"created_at"`
+	UpdatedAt  string   `json:"updated_at"`
 }
