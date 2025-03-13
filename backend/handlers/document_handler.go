@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -40,20 +41,26 @@ func CreateDocumentHandler(c *gin.Context) {
 	songID := c.Param("id")
 	var document models.Document
 
-	if err := c.ShouldBindJSON(&document); err != nil {
-		utils.HandleAPIError(c, err, "Invalid input")
+	// Validate request payload
+	middleware.ValidateRequest(&document)(c)
+	if c.IsAborted() {
 		return
 	}
 
 	document.SongID = songID
 
+	// Create the document in the database
 	err := services.CreateDocument(document)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to create document")
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{"document_id": document.ID, "song_id": songID}).Info("Document created successfully")
+	logrus.WithFields(logrus.Fields{
+		"document_id": document.ID,
+		"song_id":     songID,
+	}).Info("Document created successfully")
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Document created successfully"})
 }
 
@@ -61,18 +68,24 @@ func UpdateDocumentHandler(c *gin.Context) {
 	docID := c.Param("id")
 	var docUpdate map[string]interface{}
 
-	if err := c.ShouldBindJSON(&docUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid input")
+	// Validate input data
+	middleware.ValidateRequest(&docUpdate)(c)
+	if c.IsAborted() {
 		return
 	}
 
+	// Attempt to update the document
 	err := services.UpdateDocument(docID, docUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update document")
 		return
 	}
 
-	logrus.WithField("document_id", docID).Info("Document updated successfully")
+	logrus.WithFields(logrus.Fields{
+		"document_id": docID,
+		"updates":     docUpdate,
+	}).Info("Document updated successfully")
+
 	c.JSON(http.StatusOK, gin.H{"message": "Document updated successfully"})
 }
 

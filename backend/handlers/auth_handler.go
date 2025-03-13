@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"net/http"
+
+	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -15,17 +18,13 @@ type LoginRequest struct {
 func LoginHandler(c *gin.Context) {
 	var req LoginRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.HandleAPIError(c, err, "Invalid login request")
+	// Apply validation middleware
+	middleware.ValidateRequest(&req)(c)
+	if c.IsAborted() {
 		return
 	}
 
-	if req.Username == "" || req.Password == "" {
-		logrus.Warn("Login attempt with missing credentials")
-		utils.HandleAPIError(c, nil, "Username and password are required")
-		return
-	}
-
+	// Authenticate user
 	token, err := services.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Invalid credentials")
@@ -33,7 +32,7 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	logrus.WithField("username", req.Username).Info("User authenticated successfully")
-	c.JSON(200, gin.H{"token": token})
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 func MeHandler(c *gin.Context) {

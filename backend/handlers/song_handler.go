@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -11,10 +12,10 @@ import (
 )
 
 type SongRequest struct {
-	Title     string            `json:"title" binding:"required"`
+	Title     string            `json:"title" binding:"required,min=3"`
 	Author    string            `json:"author" binding:"required"`
-	Genres    []string          `json:"genres" binding:"required"`
-	Documents []models.Document `json:"documents,omitempty"`
+	Genres    []string          `json:"genres" binding:"required,dive,min=3"`
+	Documents []models.Document `json:"documents,omitempty"` // Optional field
 }
 
 func GetAllSongsHandler(c *gin.Context) {
@@ -44,8 +45,9 @@ func GetSongByIDHandler(c *gin.Context) {
 func CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.HandleAPIError(c, err, "Invalid input")
+	// Apply validation middleware
+	middleware.ValidateRequest(&req)(c)
+	if c.IsAborted() {
 		return
 	}
 
@@ -57,7 +59,8 @@ func CreateSongHandler(c *gin.Context) {
 
 	err := services.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to create song")
+		logrus.WithError(err).Error("Failed to create song with documents")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create song"})
 		return
 	}
 
@@ -69,18 +72,24 @@ func UpdateSongHandler(c *gin.Context) {
 	id := c.Param("id")
 	var songUpdate map[string]interface{}
 
-	if err := c.ShouldBindJSON(&songUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid input")
+	// Validate input data
+	middleware.ValidateRequest(&songUpdate)(c)
+	if c.IsAborted() {
 		return
 	}
 
+	// Attempt to update the song
 	err := services.UpdateSong(id, songUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update song")
 		return
 	}
 
-	logrus.WithField("song_id", id).Info("Song updated successfully")
+	logrus.WithFields(logrus.Fields{
+		"song_id": id,
+		"updates": songUpdate,
+	}).Info("Song updated successfully")
+
 	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully"})
 }
 
