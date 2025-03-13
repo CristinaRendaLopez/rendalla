@@ -5,6 +5,7 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -14,8 +15,7 @@ func GetAllDocumentsBySongIDHandler(c *gin.Context) {
 
 	documents, err := services.GetDocumentsBySongID(songID)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": songID, "error": err}).Error("Failed to retrieve documents")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve documents"})
+		utils.HandleAPIError(c, err, "Failed to retrieve documents")
 		return
 	}
 
@@ -28,8 +28,7 @@ func GetDocumentByIDHandler(c *gin.Context) {
 
 	document, err := services.GetDocumentByID(docID)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": docID, "error": err}).Error("Document not found")
-		c.JSON(http.StatusNotFound, gin.H{"error": "Document not found"})
+		utils.HandleAPIError(c, err, "Document not found")
 		return
 	}
 
@@ -42,8 +41,7 @@ func CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 
 	if err := c.ShouldBindJSON(&document); err != nil {
-		logrus.WithError(err).Warn("Invalid request body for document creation")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		utils.HandleAPIError(c, err, "Invalid input")
 		return
 	}
 
@@ -51,8 +49,7 @@ func CreateDocumentHandler(c *gin.Context) {
 
 	err := services.CreateDocument(document)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": songID, "error": err}).Error("Failed to create document")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create document"})
+		utils.HandleAPIError(c, err, "Failed to create document")
 		return
 	}
 
@@ -65,15 +62,13 @@ func UpdateDocumentHandler(c *gin.Context) {
 	var docUpdate map[string]interface{}
 
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": docID, "error": err}).Warn("Invalid request body for document update")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		utils.HandleAPIError(c, err, "Invalid input")
 		return
 	}
 
 	err := services.UpdateDocument(docID, docUpdate)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": docID, "error": err}).Error("Failed to update document")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update document"})
+		utils.HandleAPIError(c, err, "Failed to update document")
 		return
 	}
 
@@ -86,8 +81,7 @@ func DeleteDocumentHandler(c *gin.Context) {
 
 	err := services.DeleteDocument(docID)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": docID, "error": err}).Error("Failed to delete document")
-		c.JSON(http.StatusNotFound, gin.H{"error": "Document not found or deletion error"})
+		utils.HandleAPIError(c, err, "Failed to delete document")
 		return
 	}
 

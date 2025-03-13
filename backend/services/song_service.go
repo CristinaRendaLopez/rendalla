@@ -5,6 +5,7 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -18,7 +19,7 @@ func GetAllSongs() ([]models.Song, error) {
 
 	if err != nil {
 		logrus.WithError(err).Error("Failed to retrieve songs")
-		return nil, handleDynamoError(err)
+		return nil, utils.HandleDynamoError(err)
 	}
 	return songs, nil
 }
@@ -29,7 +30,7 @@ func GetSongByID(id string) (*models.Song, error) {
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Song not found")
-		return nil, handleDynamoError(err)
+		return nil, utils.HandleDynamoError(err)
 	}
 	return &song, nil
 }
@@ -74,7 +75,7 @@ func CreateSongWithDocuments(song models.Song, documents []models.Document) erro
 	_, err = bootstrap.DB.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create song with documents")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", song.ID).Info("Song and documents created successfully")
@@ -92,7 +93,7 @@ func UpdateSong(id string, updates map[string]interface{}) error {
 	err := update.Run()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to update song")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", id).Info("Song updated successfully")
@@ -103,12 +104,12 @@ func DeleteSongWithDocuments(songID string) error {
 	_, err := GetSongByID(songID)
 	if err != nil {
 		logrus.WithField("song_id", songID).Warn("Attempted to delete a non-existing song")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	documents, err := GetDocumentsBySongID(songID)
 	if err != nil {
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	var transactItems []*dynamodb.TransactWriteItem
@@ -132,7 +133,7 @@ func DeleteSongWithDocuments(songID string) error {
 	_, err = bootstrap.DB.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete song and documents")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", songID).Info("Song and associated documents deleted successfully")

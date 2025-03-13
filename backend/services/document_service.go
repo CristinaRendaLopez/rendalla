@@ -5,6 +5,7 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -21,7 +22,7 @@ func GetDocumentsBySongID(songID string) ([]models.Document, error) {
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": songID, "error": err}).Error("Failed to retrieve documents")
-		return nil, handleDynamoError(err)
+		return nil, utils.HandleDynamoError(err)
 	}
 	return documents, nil
 }
@@ -34,7 +35,7 @@ func GetDocumentByID(id string) (*models.Document, error) {
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Document not found")
-		return nil, handleDynamoError(err)
+		return nil, utils.HandleDynamoError(err)
 	}
 	return &document, nil
 }
@@ -70,7 +71,7 @@ func CreateDocument(document models.Document) error {
 	_, err = bootstrap.DB.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": document.ID, "error": err}).Error("Failed to create document")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("document_id", document.ID).Info("Document created successfully")
@@ -88,7 +89,7 @@ func UpdateDocument(id string, updates map[string]interface{}) error {
 	err := update.Run()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to update document")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("document_id", id).Info("Document updated successfully")
@@ -117,7 +118,7 @@ func DeleteDocument(id string) error {
 	_, err := bootstrap.DB.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to delete document")
-		return handleDynamoError(err)
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("document_id", id).Info("Document deleted successfully")

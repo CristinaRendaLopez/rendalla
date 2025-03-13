@@ -5,6 +5,7 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -19,8 +20,7 @@ type SongRequest struct {
 func GetAllSongsHandler(c *gin.Context) {
 	songs, err := services.GetAllSongs()
 	if err != nil {
-		logrus.WithError(err).Error("Failed to retrieve songs")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve songs"})
+		utils.HandleAPIError(c, err, "Failed to retrieve songs")
 		return
 	}
 
@@ -33,8 +33,7 @@ func GetSongByIDHandler(c *gin.Context) {
 
 	song, err := services.GetSongByID(id)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Song not found")
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
+		utils.HandleAPIError(c, err, "Song not found")
 		return
 	}
 
@@ -46,8 +45,7 @@ func CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logrus.WithError(err).Warn("Invalid request body for song creation")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		utils.HandleAPIError(c, err, "Invalid input")
 		return
 	}
 
@@ -59,8 +57,7 @@ func CreateSongHandler(c *gin.Context) {
 
 	err := services.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to create song with documents")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create song"})
+		utils.HandleAPIError(c, err, "Failed to create song")
 		return
 	}
 
@@ -73,15 +70,13 @@ func UpdateSongHandler(c *gin.Context) {
 	var songUpdate map[string]interface{}
 
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Warn("Invalid request body for song update")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		utils.HandleAPIError(c, err, "Invalid input")
 		return
 	}
 
 	err := services.UpdateSong(id, songUpdate)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to update song")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update song"})
+		utils.HandleAPIError(c, err, "Failed to update song")
 		return
 	}
 
@@ -94,8 +89,7 @@ func DeleteSongWithDocumentsHandler(c *gin.Context) {
 
 	err := services.DeleteSongWithDocuments(id)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to delete song with documents")
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found or deletion error"})
+		utils.HandleAPIError(c, err, "Failed to delete song")
 		return
 	}
 

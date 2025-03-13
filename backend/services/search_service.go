@@ -5,6 +5,7 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
@@ -28,7 +29,7 @@ func SearchSongsByTitle(title string, limit int, nextToken dynamo.PagingKey) ([]
 	nextKey, err := query.AllWithLastEvaluatedKey(&songs)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"title": title, "error": err}).Error("Failed to search songs by title")
-		return nil, nil, handleDynamoError(err)
+		return nil, nil, utils.HandleDynamoError(err)
 	}
 
 	return songs, nextKey, nil
@@ -53,7 +54,7 @@ func FilterDocumentsByInstrument(instrument string, limit int, nextToken dynamo.
 	nextKey, err := query.AllWithLastEvaluatedKey(&documents)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"instrument": instrument, "error": err}).Error("Failed to filter documents by instrument")
-		return nil, nil, handleDynamoError(err)
+		return nil, nil, utils.HandleDynamoError(err)
 	}
 
 	return documents, nextKey, nil
@@ -78,7 +79,7 @@ func SearchDocumentsByTitle(title string, limit int, nextToken dynamo.PagingKey)
 	nextKey, err := query.AllWithLastEvaluatedKey(&documents)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"title": title, "error": err}).Error("Failed to search documents by title")
-		return nil, nil, handleDynamoError(err)
+		return nil, nil, utils.HandleDynamoError(err)
 	}
 
 	return documents, nextKey, nil
