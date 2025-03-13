@@ -14,34 +14,34 @@ import (
 )
 
 func main() {
-	// Cargar variables de entorno desde .env
+	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		logrus.Warn("No se pudo cargar el archivo .env, usando valores predeterminados")
+		logrus.Warn("Could not load .env file, using default values")
 	}
 
-	// Inicializar configuración y base de datos
+	// Initialize configuration and database
 	bootstrap.LoadConfig()
 	bootstrap.InitDB()
 
-	// Inicializar router de Gin
+	// Set up Gin router
 	r := gin.Default()
 
-	// Configurar CORS para permitir solicitudes del frontend
+	// Enable CORS
 	r.Use(cors.Default())
 
-	// Middleware global (logs estructurados y manejo de errores)
+	// Middleware for structured logging and error handling
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	// Ruta para verificar el estado del backend
+	// Health check route
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "ok",
-			"message": "Rendalla backend funcionando correctamente 🚀",
+			"message": "Rendalla backend is running successfully",
 		})
 	})
 
-	// Rutas públicas (sin autenticación)
+	// Public routes (no authentication required)
 	public := r.Group("/")
 	{
 		public.GET("/songs", handlers.GetAllSongsHandler)
@@ -54,30 +54,27 @@ func main() {
 		public.POST("/auth/login", handlers.LoginHandler)
 	}
 
-	// Rutas protegidas (con autenticación JWT)
+	// Protected routes (authentication required)
 	auth := r.Group("/")
 	auth.Use(middleware.JWTAuthMiddleware())
 	{
-		// Canciones
 		auth.POST("/songs", handlers.CreateSongHandler)
 		auth.PUT("/songs/:id", handlers.UpdateSongHandler)
 		auth.DELETE("/songs/:id", handlers.DeleteSongWithDocumentsHandler)
 
-		// Documentos
 		auth.POST("/songs/:id/documents", handlers.CreateDocumentHandler)
 		auth.PUT("/documents/:id", handlers.UpdateDocumentHandler)
 		auth.DELETE("/documents/:id", handlers.DeleteDocumentHandler)
 
-		// Autenticación
 		auth.GET("/auth/me", handlers.MeHandler)
 	}
 
-	// Obtener y validar el puerto
+	// Get and validate port
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	logrus.Infof("🚀 Rendalla backend corriendo en el puerto %s", port)
+	logrus.Infof("Rendalla backend is running on port %s", port)
 	r.Run(fmt.Sprintf(":%s", port))
 }

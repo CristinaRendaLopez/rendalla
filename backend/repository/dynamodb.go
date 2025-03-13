@@ -8,7 +8,6 @@ import (
 
 type DynamoDB struct{}
 
-// Inserts a new song into the DynamoDB table
 func (d *DynamoDB) PutSong(song models.Song) error {
 	err := bootstrap.DB.Table(bootstrap.SongTableName).Put(song).Run()
 	if err != nil {
@@ -19,7 +18,6 @@ func (d *DynamoDB) PutSong(song models.Song) error {
 	return nil
 }
 
-// Retrieves a song by its ID
 func (d *DynamoDB) GetSongByID(id string) (*models.Song, error) {
 	var song models.Song
 	err := bootstrap.DB.Table(bootstrap.SongTableName).Get("id", id).One(&song)
@@ -31,7 +29,6 @@ func (d *DynamoDB) GetSongByID(id string) (*models.Song, error) {
 	return &song, nil
 }
 
-// Updates a song by its ID
 func (d *DynamoDB) UpdateSong(id string, updates map[string]interface{}) error {
 	update := bootstrap.DB.Table(bootstrap.SongTableName).Update("id", id)
 	for key, value := range updates {
@@ -47,7 +44,6 @@ func (d *DynamoDB) UpdateSong(id string, updates map[string]interface{}) error {
 	return nil
 }
 
-// Deletes a song by its ID
 func (d *DynamoDB) DeleteSong(id string) error {
 	err := bootstrap.DB.Table(bootstrap.SongTableName).Delete("id", id).Run()
 	if err != nil {

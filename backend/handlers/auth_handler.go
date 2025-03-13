@@ -18,13 +18,11 @@ type LoginRequest struct {
 func LoginHandler(c *gin.Context) {
 	var req LoginRequest
 
-	// Apply validation middleware
 	middleware.ValidateRequest(&req)(c)
 	if c.IsAborted() {
 		return
 	}
 
-	// Authenticate user
 	token, err := services.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Invalid credentials")

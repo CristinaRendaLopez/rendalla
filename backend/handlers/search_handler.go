@@ -10,7 +10,6 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-// SearchSongsByTitleHandler - GET /songs/search?title=&limit=&next_token=
 func SearchSongsByTitleHandler(c *gin.Context) {
 	title := c.Query("title")
 	limit, nextToken := getPaginationParams(c)
@@ -27,7 +26,6 @@ func SearchSongsByTitleHandler(c *gin.Context) {
 	})
 }
 
-// SearchDocumentsByTitleHandler - GET /documents/search?title=&limit=&next_token=
 func SearchDocumentsByTitleHandler(c *gin.Context) {
 	title := c.Query("title")
 	limit, nextToken := getPaginationParams(c)
@@ -44,7 +42,6 @@ func SearchDocumentsByTitleHandler(c *gin.Context) {
 	})
 }
 
-// FilterDocumentsByInstrumentHandler - GET /documents/filter?instrument=&limit=&next_token=
 func FilterDocumentsByInstrumentHandler(c *gin.Context) {
 	instrument := c.Query("instrument")
 	limit, nextToken := getPaginationParams(c)
@@ -61,7 +58,6 @@ func FilterDocumentsByInstrumentHandler(c *gin.Context) {
 	})
 }
 
-// getPaginationParams - Obtiene los parámetros de paginación desde la URL
 func getPaginationParams(c *gin.Context) (int, dynamo.PagingKey) {
 	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	if err != nil || limit <= 0 {

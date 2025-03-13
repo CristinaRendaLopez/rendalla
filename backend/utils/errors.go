@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// HandleDynamoError - Traduce errores de DynamoDB en mensajes amigables
 func HandleDynamoError(err error) error {
 	if err == nil {
 		return nil
@@ -42,7 +41,6 @@ func HandleDynamoError(err error) error {
 	return errors.New("an unexpected error occurred")
 }
 
-// HandleAPIError - Maneja errores en handlers de Gin y API Gateway
 func HandleAPIError(c *gin.Context, err error, message string) {
 	if err == nil {
 		return
@@ -70,7 +68,6 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 	})
 }
 
-// CreateErrorResponse - Unifica errores para AWS Lambda (API Gateway)
 func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
 	statusCode := http.StatusInternalServerError
 	message := "An unexpected error occurred"

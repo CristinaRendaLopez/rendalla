@@ -12,34 +12,30 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Cargar variables de entorno desde .env
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Advertencia: No se pudo cargar el archivo .env, usando valores predeterminados")
+		log.Println("Warning: Could not load .env file, using default values")
 	}
 }
 
-// getJWTSecret obtiene la clave secreta desde .env
 func getJWTSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		log.Println("Advertencia: JWT_SECRET no está definido en .env, usando clave predeterminada")
-		return []byte("clave_predeterminada")
+		log.Println("Warning: JWT_SECRET is not defined in .env, using default secret")
+		return []byte("default_secret")
 	}
 	return []byte(secret)
 }
 
-// JWTAuthMiddleware - Middleware para verificar tokens JWT
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
-		// Verificar formato del header
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": gin.H{
-					"message": "Token JWT requerido",
+					"message": "JWT token required",
 					"code":    "JWT_REQUIRED",
 				},
 			})
@@ -47,25 +43,22 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Extraer el token eliminando el prefijo "Bearer "
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Parsear y validar el token JWT
 		claims := jwt.MapClaims{}
 		token, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
 			return getJWTSecret(), nil
 		})
 
-		// Manejo de errores en el parsing del token
 		if err != nil {
 			var errorMsg string
 
 			if errors.Is(err, jwt.ErrTokenExpired) {
-				errorMsg = "El token ha expirado"
+				errorMsg = "Token has expired"
 			} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-				errorMsg = "Firma de token inválida"
+				errorMsg = "Invalid token signature"
 			} else {
-				errorMsg = "Token JWT inválido"
+				errorMsg = "Invalid JWT token"
 			}
 
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -78,7 +71,6 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Extraer claims del token y almacenarlas en el contexto
 		if token.Valid {
 			username, _ := claims["username"].(string)
 			c.Set("username", username)
@@ -86,7 +78,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": gin.H{
-					"message": "Token JWT inválido",
+					"message": "Invalid JWT token",
 					"code":    "JWT_INVALID",
 				},
 			})

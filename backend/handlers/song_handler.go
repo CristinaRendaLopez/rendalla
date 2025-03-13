@@ -45,7 +45,6 @@ func GetSongByIDHandler(c *gin.Context) {
 func CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 
-	// Apply validation middleware
 	middleware.ValidateRequest(&req)(c)
 	if c.IsAborted() {
 		return
@@ -72,13 +71,11 @@ func UpdateSongHandler(c *gin.Context) {
 	id := c.Param("id")
 	var songUpdate map[string]interface{}
 
-	// Validate input data
 	middleware.ValidateRequest(&songUpdate)(c)
 	if c.IsAborted() {
 		return
 	}
 
-	// Attempt to update the song
 	err := services.UpdateSong(id, songUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update song")

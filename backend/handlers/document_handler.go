@@ -41,7 +41,6 @@ func CreateDocumentHandler(c *gin.Context) {
 	songID := c.Param("id")
 	var document models.Document
 
-	// Validate request payload
 	middleware.ValidateRequest(&document)(c)
 	if c.IsAborted() {
 		return
@@ -49,7 +48,6 @@ func CreateDocumentHandler(c *gin.Context) {
 
 	document.SongID = songID
 
-	// Create the document in the database
 	err := services.CreateDocument(document)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to create document")
@@ -68,13 +66,11 @@ func UpdateDocumentHandler(c *gin.Context) {
 	docID := c.Param("id")
 	var docUpdate map[string]interface{}
 
-	// Validate input data
 	middleware.ValidateRequest(&docUpdate)(c)
 	if c.IsAborted() {
 		return
 	}
 
-	// Attempt to update the document
 	err := services.UpdateDocument(docID, docUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update document")
