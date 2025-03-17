@@ -35,14 +35,14 @@ func GetSongByID(id string) (*models.Song, error) {
 	return &song, nil
 }
 
-func CreateSongWithDocuments(song models.Song, documents []models.Document) error {
+func CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
 	song.ID = uuid.New().String()
 	now := time.Now().UTC().Format(time.RFC3339)
 	song.CreatedAt, song.UpdatedAt = now, now
 
 	songItem, err := dynamodbattribute.MarshalMap(song)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var transactItems []*dynamodb.TransactWriteItem
@@ -60,7 +60,7 @@ func CreateSongWithDocuments(song models.Song, documents []models.Document) erro
 
 		docItem, err := dynamodbattribute.MarshalMap(documents[i])
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		transactItems = append(transactItems, &dynamodb.TransactWriteItem{
@@ -75,11 +75,11 @@ func CreateSongWithDocuments(song models.Song, documents []models.Document) erro
 	_, err = bootstrap.DB.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create song with documents")
-		return utils.HandleDynamoError(err)
+		return "", utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", song.ID).Info("Song and documents created successfully")
-	return nil
+	return song.ID, nil
 }
 
 func UpdateSong(id string, updates map[string]interface{}) error {

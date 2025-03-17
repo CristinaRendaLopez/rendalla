@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
@@ -70,7 +69,7 @@ func main() {
 	}
 
 	// Get and validate port
-	port := os.Getenv("PORT")
+	port := bootstrap.AppPort
 	if port == "" {
 		port = "8080"
 	}

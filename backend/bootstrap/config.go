@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Configuration variables
 var (
 	SongTableName     string
 	DocumentTableName string
@@ -15,7 +14,6 @@ var (
 	AppPort           string
 )
 
-// Load configuration from .env file or system environment variables
 func LoadConfig() {
 	err := godotenv.Load()
 	if err != nil {
@@ -24,7 +22,7 @@ func LoadConfig() {
 
 	SongTableName = getEnv("SONG_DYNAMODB_TABLE", "default_songs_table")
 	DocumentTableName = getEnv("DOCUMENT_DYNAMODB_TABLE", "default_documents_table")
-	AWSRegion = getEnv("AWS_REGION", "us-east-1")
+	AWSRegion = getEnv("AWS_REGION", "eu-north-1")
 	AppPort = getEnv("APP_PORT", "8080")
 
 	logrus.WithFields(logrus.Fields{
@@ -35,7 +33,6 @@ func LoadConfig() {
 	}).Info("Configuration loaded successfully")
 }
 
-// Helper function to get environment variables with a default value
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value

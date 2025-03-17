@@ -15,7 +15,7 @@ type SongRequest struct {
 	Title     string            `json:"title" binding:"required,min=3"`
 	Author    string            `json:"author" binding:"required"`
 	Genres    []string          `json:"genres" binding:"required,dive,min=3"`
-	Documents []models.Document `json:"documents,omitempty"` // Optional field
+	Documents []models.Document `json:"documents,omitempty"`
 }
 
 func GetAllSongsHandler(c *gin.Context) {
@@ -56,7 +56,7 @@ func CreateSongHandler(c *gin.Context) {
 		Genres: req.Genres,
 	}
 
-	err := services.CreateSongWithDocuments(song, req.Documents)
+	_, err := services.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create song with documents")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create song"})

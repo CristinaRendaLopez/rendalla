@@ -33,7 +33,7 @@ var jwtSecret = []byte(getJWTSecret())
 func getAuthCredentials() (*AuthCredentials, error) {
 
 	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")), // Load AWS region from environment
+		Region: aws.String(os.Getenv("AWS_REGION")),
 	}))
 
 	svc := secretsmanager.New(sess)
