@@ -2,29 +2,52 @@ package services_test
 
 import (
 	"testing"
-	"time"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestGetSongByID(t *testing.T) {
-	mockDB := new(services.MockDB)
-	expectedSong := &models.Song{
-		ID:        "123",
-		Title:     "Bohemian Rhapsody",
-		Author:    "Queen",
-		Genres:    []string{"Rock", "Opera"},
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+func TestCreateSongWithDocuments(t *testing.T) {
+	mockSongRepo := new(mocks.MockSongRepository)
+	mockDocRepo := new(mocks.MockDocumentRepository)
+	service := services.NewSongService(mockSongRepo, mockDocRepo)
+
+	song := models.Song{
+		Title:  "Bohemian Rhapsody",
+		Author: "Queen",
+		Genres: []string{"Rock", "Opera"},
 	}
 
-	mockDB.On("GetSongByID", "123").Return(expectedSong, nil)
+	documents := []models.Document{
+		{
+			Type:       "sheet_music",
+			Instrument: []string{"Guitar"},
+			PDFURL:     "https://s3.amazonaws.com/queen/bohemian.pdf",
+		},
+	}
 
-	song, err := mockDB.GetSongByID("123")
+	mockSongRepo.On("CreateSongWithDocuments", mock.MatchedBy(func(s models.Song) bool {
+		return s.Title == "Bohemian Rhapsody" &&
+			s.Author == "Queen" &&
+			len(s.Genres) == 2 &&
+			s.Genres[0] == "Rock" &&
+			s.Genres[1] == "Opera"
+	}), documents).Return("123", nil)
+
+	mockDocRepo.On("CreateDocument", mock.MatchedBy(func(d models.Document) bool {
+		return d.Type == "sheet_music" &&
+			d.PDFURL == "https://s3.amazonaws.com/queen/bohemian.pdf" &&
+			d.SongID == "123"
+	})).Return("doc1", nil)
+
+	songID, err := service.CreateSongWithDocuments(song, documents)
 
 	assert.NoError(t, err)
-	assert.NotNil(t, song)
-	assert.Equal(t, expectedSong, song)
+	assert.Equal(t, "123", songID)
+
+	mockSongRepo.AssertExpectations(t)
+	mockDocRepo.AssertExpectations(t)
 }
