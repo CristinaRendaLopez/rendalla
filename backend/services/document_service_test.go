@@ -4,13 +4,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDocumentByID(t *testing.T) {
-	mockDB := new(services.MockDB)
+	mockDocRepo := new(mocks.MockDocumentRepository)
+	service := services.NewDocumentService(mockDocRepo)
+
 	expectedDoc := &models.Document{
 		ID:         "doc1",
 		SongID:     "song1",
@@ -21,11 +24,13 @@ func TestGetDocumentByID(t *testing.T) {
 		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
 	}
 
-	mockDB.On("GetDocumentByID", "doc1").Return(expectedDoc, nil)
+	mockDocRepo.On("GetDocumentByID", "doc1").Return(expectedDoc, nil)
 
-	doc, err := mockDB.GetDocumentByID("doc1")
+	doc, err := service.GetDocumentByID("doc1")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, doc)
 	assert.Equal(t, expectedDoc, doc)
+
+	mockDocRepo.AssertExpectations(t)
 }

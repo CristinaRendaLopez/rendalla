@@ -4,64 +4,84 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
+	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestAuthenticateUser_Success(t *testing.T) {
-	mockDB := new(services.MockDB)
+	mockAuthRepo := new(mocks.MockAuthRepository)
+	service := services.NewAuthService(mockAuthRepo, "mock-secret")
 
-	username := "admin"
-	password := "password123"
-	expectedToken := "mocked-jwt-token"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	expectedCredentials := &repository.AuthCredentials{
+		Username: "admin",
+		Password: string(hashedPassword),
+	}
 
-	mockDB.On("AuthenticateUser", username, password).Return(expectedToken, nil)
+	mockAuthRepo.On("GetAuthCredentials").Return(expectedCredentials, nil)
 
-	token, err := mockDB.AuthenticateUser(username, password)
+	token, err := service.AuthenticateUser("admin", "password123")
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedToken, token)
+	assert.NotEmpty(t, token)
+
+	mockAuthRepo.AssertExpectations(t)
 }
 
 func TestAuthenticateUser_InvalidCredentials(t *testing.T) {
-	mockDB := new(services.MockDB)
+	mockAuthRepo := new(mocks.MockAuthRepository)
+	service := services.NewAuthService(mockAuthRepo, "mock-secret")
 
-	username := "admin"
-	wrongPassword := "wrongpassword"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	expectedCredentials := &repository.AuthCredentials{
+		Username: "admin",
+		Password: string(hashedPassword),
+	}
 
-	mockDB.On("AuthenticateUser", username, wrongPassword).Return("", errors.New("invalid credentials"))
+	mockAuthRepo.On("GetAuthCredentials").Return(expectedCredentials, nil)
 
-	token, err := mockDB.AuthenticateUser(username, wrongPassword)
+	token, err := service.AuthenticateUser("admin", "wrongpassword")
 
 	assert.Error(t, err)
 	assert.Equal(t, "invalid credentials", err.Error())
 	assert.Empty(t, token)
+
+	mockAuthRepo.AssertExpectations(t)
 }
 
 func TestGetAuthCredentials_Success(t *testing.T) {
-	mockDB := new(services.MockDB)
+	mockAuthRepo := new(mocks.MockAuthRepository)
+	service := services.NewAuthService(mockAuthRepo, "mock-secret")
 
-	expectedCredentials := &services.AuthCredentials{
+	expectedCredentials := &repository.AuthCredentials{
 		Username: "admin",
 		Password: "$2a$10$hashedpassword",
 	}
 
-	mockDB.On("GetAuthCredentials").Return(expectedCredentials, nil)
+	mockAuthRepo.On("GetAuthCredentials").Return(expectedCredentials, nil)
 
-	creds, err := mockDB.GetAuthCredentials()
+	creds, err := service.GetAuthCredentials()
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedCredentials, creds)
+
+	mockAuthRepo.AssertExpectations(t)
 }
 
 func TestGetAuthCredentials_Failure(t *testing.T) {
-	mockDB := new(services.MockDB)
+	mockAuthRepo := new(mocks.MockAuthRepository)
+	service := services.NewAuthService(mockAuthRepo, "mock-secret")
 
-	mockDB.On("GetAuthCredentials").Return(nil, errors.New("failed to retrieve credentials"))
+	mockAuthRepo.On("GetAuthCredentials").Return(nil, errors.New("failed to retrieve credentials"))
 
-	creds, err := mockDB.GetAuthCredentials()
+	creds, err := service.GetAuthCredentials()
 
 	assert.Error(t, err)
 	assert.Nil(t, creds)
 	assert.Equal(t, "failed to retrieve credentials", err.Error())
+
+	mockAuthRepo.AssertExpectations(t)
 }

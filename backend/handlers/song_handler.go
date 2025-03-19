@@ -3,13 +3,20 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
+
+type SongHandler struct {
+	songService *services.SongService
+}
+
+func NewSongHandler(songService *services.SongService) *SongHandler {
+	return &SongHandler{songService: songService}
+}
 
 type SongRequest struct {
 	Title     string            `json:"title" binding:"required,min=3"`
@@ -18,8 +25,8 @@ type SongRequest struct {
 	Documents []models.Document `json:"documents,omitempty"`
 }
 
-func GetAllSongsHandler(c *gin.Context) {
-	songs, err := services.GetAllSongs()
+func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
+	songs, err := h.songService.GetAllSongs()
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to retrieve songs")
 		return
@@ -29,10 +36,10 @@ func GetAllSongsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": songs})
 }
 
-func GetSongByIDHandler(c *gin.Context) {
+func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	song, err := services.GetSongByID(id)
+	song, err := h.songService.GetSongByID(id)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Song not found")
 		return
@@ -42,11 +49,10 @@ func GetSongByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": song})
 }
 
-func CreateSongHandler(c *gin.Context) {
+func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
-
-	middleware.ValidateRequest(&req)(c)
-	if c.IsAborted() {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.HandleAPIError(c, err, "Invalid song data")
 		return
 	}
 
@@ -56,10 +62,9 @@ func CreateSongHandler(c *gin.Context) {
 		Genres: req.Genres,
 	}
 
-	_, err := services.CreateSongWithDocuments(song, req.Documents)
+	_, err := h.songService.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to create song with documents")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create song"})
+		utils.HandleAPIError(c, err, "Failed to create song")
 		return
 	}
 
@@ -67,16 +72,16 @@ func CreateSongHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Song created successfully"})
 }
 
-func UpdateSongHandler(c *gin.Context) {
+func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	id := c.Param("id")
 	var songUpdate map[string]interface{}
 
-	middleware.ValidateRequest(&songUpdate)(c)
-	if c.IsAborted() {
+	if err := c.ShouldBindJSON(&songUpdate); err != nil {
+		utils.HandleAPIError(c, err, "Invalid request data")
 		return
 	}
 
-	err := services.UpdateSong(id, songUpdate)
+	err := h.songService.UpdateSong(id, songUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update song")
 		return
@@ -90,10 +95,10 @@ func UpdateSongHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully"})
 }
 
-func DeleteSongWithDocumentsHandler(c *gin.Context) {
+func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	err := services.DeleteSongWithDocuments(id)
+	err := h.songService.DeleteSongWithDocuments(id)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to delete song")
 		return

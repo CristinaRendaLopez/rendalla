@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
+	"github.com/CristinaRendaLopez/rendalla-backend/repository"
+	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -21,6 +24,24 @@ func main() {
 	// Initialize configuration and database
 	bootstrap.LoadConfig()
 	bootstrap.InitDB()
+
+	// Initialize repositories
+	songRepo := repository.NewDynamoSongRepository(repository.NewDynamoDocumentRepository())
+	documentRepo := repository.NewDynamoDocumentRepository()
+	searchRepo := repository.NewDynamoSearchRepository(bootstrap.DB)
+	authRepo := repository.NewAWSAuthRepository()
+
+	// Initialize services
+	songService := services.NewSongService(songRepo, documentRepo)
+	documentService := services.NewDocumentService(documentRepo)
+	searchService := services.NewSearchService(searchRepo)
+	authService := services.NewAuthService(authRepo, os.Getenv("JWT_SECRET"))
+
+	// Initialize handlers
+	songHandler := handlers.NewSongHandler(songService)
+	documentHandler := handlers.NewDocumentHandler(documentService)
+	searchHandler := handlers.NewSearchHandler(searchService)
+	authHandler := handlers.NewAuthHandler(authService)
 
 	// Set up Gin router
 	r := gin.Default()
@@ -43,29 +64,29 @@ func main() {
 	// Public routes (no authentication required)
 	public := r.Group("/")
 	{
-		public.GET("/songs", handlers.GetAllSongsHandler)
-		public.GET("/songs/:id", handlers.GetSongByIDHandler)
-		public.GET("/songs/:id/documents", handlers.GetAllDocumentsBySongIDHandler)
-		public.GET("/documents/:id", handlers.GetDocumentByIDHandler)
-		public.GET("/songs/search", handlers.SearchSongsByTitleHandler)
-		public.GET("/documents/search", handlers.SearchDocumentsByTitleHandler)
-		public.GET("/documents/filter", handlers.FilterDocumentsByInstrumentHandler)
-		public.POST("/auth/login", handlers.LoginHandler)
+		public.GET("/songs", songHandler.GetAllSongsHandler)
+		public.GET("/songs/:id", songHandler.GetSongByIDHandler)
+		public.GET("/songs/:id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
+		public.GET("/documents/:id", documentHandler.GetDocumentByIDHandler)
+		public.GET("/songs/search", searchHandler.SearchSongsByTitleHandler)
+		public.GET("/documents/search", searchHandler.SearchDocumentsByTitleHandler)
+		public.GET("/documents/filter", searchHandler.FilterDocumentsByInstrumentHandler)
+		public.POST("/auth/login", authHandler.LoginHandler)
 	}
 
 	// Protected routes (authentication required)
 	auth := r.Group("/")
 	auth.Use(middleware.JWTAuthMiddleware())
 	{
-		auth.POST("/songs", handlers.CreateSongHandler)
-		auth.PUT("/songs/:id", handlers.UpdateSongHandler)
-		auth.DELETE("/songs/:id", handlers.DeleteSongWithDocumentsHandler)
+		auth.POST("/songs", songHandler.CreateSongHandler)
+		auth.PUT("/songs/:id", songHandler.UpdateSongHandler)
+		auth.DELETE("/songs/:id", songHandler.DeleteSongWithDocumentsHandler)
 
-		auth.POST("/songs/:id/documents", handlers.CreateDocumentHandler)
-		auth.PUT("/documents/:id", handlers.UpdateDocumentHandler)
-		auth.DELETE("/documents/:id", handlers.DeleteDocumentHandler)
+		auth.POST("/songs/:id/documents", documentHandler.CreateDocumentHandler)
+		auth.PUT("/documents/:id", documentHandler.UpdateDocumentHandler)
+		auth.DELETE("/documents/:id", documentHandler.DeleteDocumentHandler)
 
-		auth.GET("/auth/me", handlers.MeHandler)
+		auth.GET("/auth/me", authHandler.MeHandler)
 	}
 
 	// Get and validate port

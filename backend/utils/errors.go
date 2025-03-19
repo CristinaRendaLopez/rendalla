@@ -27,7 +27,7 @@ func HandleDynamoError(err error) error {
 			return errors.New("throughput limit exceeded, please try again later")
 		case dynamodb.ErrCodeResourceNotFoundException:
 			logrus.WithError(awsErr).Error("DynamoDB resource not found")
-			return errors.New("requested resource not found")
+			return ErrResourceNotFound
 		case dynamodb.ErrCodeInternalServerError:
 			logrus.WithError(awsErr).Error("Internal error in DynamoDB")
 			return errors.New("internal server error, please try again later")
@@ -41,18 +41,24 @@ func HandleDynamoError(err error) error {
 	return errors.New("an unexpected error occurred")
 }
 
+var ErrResourceNotFound = errors.New("requested resource not found")
+
+func IsDynamoNotFoundError(err error) bool {
+	return errors.Is(err, ErrResourceNotFound)
+}
+
 func HandleAPIError(c *gin.Context, err error, message string) {
 	if err == nil {
 		return
 	}
 
 	statusCode := http.StatusInternalServerError
-	switch err.Error() {
-	case "requested resource not found":
+	switch {
+	case IsDynamoNotFoundError(err):
 		statusCode = http.StatusNotFound
-	case "operation not allowed: conditions not met":
+	case errors.Is(err, errors.New("operation not allowed: conditions not met")):
 		statusCode = http.StatusForbidden
-	case "throughput limit exceeded, please try again later":
+	case errors.Is(err, errors.New("throughput limit exceeded, please try again later")):
 		statusCode = http.StatusTooManyRequests
 	default:
 		statusCode = http.StatusInternalServerError
@@ -72,20 +78,18 @@ func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
 	statusCode := http.StatusInternalServerError
 	message := "An unexpected error occurred"
 
-	if err != nil {
-		switch err.Error() {
-		case "requested resource not found":
-			statusCode = http.StatusNotFound
-			message = "Resource not found"
-		case "operation not allowed: conditions not met":
-			statusCode = http.StatusForbidden
-			message = "Operation not allowed"
-		case "throughput limit exceeded, please try again later":
-			statusCode = http.StatusTooManyRequests
-			message = "Too many requests, try again later"
-		default:
-			logrus.WithError(err).Error("Unhandled error in API Gateway")
-		}
+	switch {
+	case IsDynamoNotFoundError(err):
+		statusCode = http.StatusNotFound
+		message = "Resource not found"
+	case errors.Is(err, errors.New("operation not allowed: conditions not met")):
+		statusCode = http.StatusForbidden
+		message = "Operation not allowed"
+	case errors.Is(err, errors.New("throughput limit exceeded, please try again later")):
+		statusCode = http.StatusTooManyRequests
+		message = "Too many requests, try again later"
+	default:
+		logrus.WithError(err).Error("Unhandled error in API Gateway")
 	}
 
 	body, _ := json.Marshal(map[string]string{"error": message})

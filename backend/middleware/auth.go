@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -31,22 +32,15 @@ func getJWTSecret() []byte {
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "JWT token required",
-					"code":    "JWT_REQUIRED",
-				},
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "JWT token required"})
 			c.Abort()
 			return
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-
 		claims := jwt.MapClaims{}
-		token, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		_, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return getJWTSecret(), nil
 		})
 
@@ -61,28 +55,21 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 				errorMsg = "Invalid JWT token"
 			}
 
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": errorMsg,
-					"code":    "JWT_INVALID",
-				},
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": errorMsg})
 			c.Abort()
 			return
 		}
 
-		if token.Valid {
-			username, _ := claims["username"].(string)
-			c.Set("username", username)
-			c.Next()
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Invalid JWT token",
-					"code":    "JWT_INVALID",
-				},
-			})
-			c.Abort()
+		if exp, ok := claims["exp"].(float64); ok {
+			if time.Now().Unix() > int64(exp) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
+				c.Abort()
+				return
+			}
 		}
+
+		username, _ := claims["username"].(string)
+		c.Set("username", username)
+		c.Next()
 	}
 }

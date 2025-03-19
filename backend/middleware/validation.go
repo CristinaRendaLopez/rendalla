@@ -12,19 +12,23 @@ var validate = validator.New()
 
 func ValidateRequest(obj interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := c.ShouldBindJSON(obj); err != nil {
+		newObj := obj
+		if err := c.ShouldBindJSON(newObj); err != nil {
 			logrus.WithError(err).Warn("Invalid request payload")
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
 			c.Abort()
 			return
 		}
 
-		if err := validate.Struct(obj); err != nil {
+		if err := validate.Struct(newObj); err != nil {
 			logrus.WithError(err).Warn("Validation failed")
 
-			validationErrors := make(map[string]string)
+			validationErrors := []map[string]string{}
 			for _, err := range err.(validator.ValidationErrors) {
-				validationErrors[err.Field()] = err.Tag()
+				validationErrors = append(validationErrors, map[string]string{
+					"field": err.Field(),
+					"error": err.Tag(),
+				})
 			}
 
 			c.JSON(http.StatusBadRequest, gin.H{

@@ -10,11 +10,19 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-func SearchSongsByTitleHandler(c *gin.Context) {
+type SearchHandler struct {
+	searchService services.SearchService
+}
+
+func NewSearchHandler(searchService *services.SearchService) *SearchHandler {
+	return &SearchHandler{searchService: *searchService}
+}
+
+func (h *SearchHandler) SearchSongsByTitleHandler(c *gin.Context) {
 	title := c.Query("title")
 	limit, nextToken := getPaginationParams(c)
 
-	songs, nextKey, err := services.SearchSongsByTitle(title, limit, nextToken)
+	songs, nextKey, err := h.searchService.SearchSongsByTitle(title, limit, nextToken)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Error searching for songs")
 		return
@@ -26,11 +34,11 @@ func SearchSongsByTitleHandler(c *gin.Context) {
 	})
 }
 
-func SearchDocumentsByTitleHandler(c *gin.Context) {
+func (h *SearchHandler) SearchDocumentsByTitleHandler(c *gin.Context) {
 	title := c.Query("title")
 	limit, nextToken := getPaginationParams(c)
 
-	documents, nextKey, err := services.SearchDocumentsByTitle(title, limit, nextToken)
+	documents, nextKey, err := h.searchService.SearchDocumentsByTitle(title, limit, nextToken)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Error searching for documents")
 		return
@@ -42,11 +50,11 @@ func SearchDocumentsByTitleHandler(c *gin.Context) {
 	})
 }
 
-func FilterDocumentsByInstrumentHandler(c *gin.Context) {
+func (h *SearchHandler) FilterDocumentsByInstrumentHandler(c *gin.Context) {
 	instrument := c.Query("instrument")
 	limit, nextToken := getPaginationParams(c)
 
-	documents, nextKey, err := services.FilterDocumentsByInstrument(instrument, limit, nextToken)
+	documents, nextKey, err := h.searchService.FilterDocumentsByInstrument(instrument, limit, nextToken)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Error filtering documents by instrument")
 		return

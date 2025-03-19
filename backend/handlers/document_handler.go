@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -11,10 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetAllDocumentsBySongIDHandler(c *gin.Context) {
+type DocumentHandler struct {
+	documentService services.DocumentService
+}
+
+func NewDocumentHandler(documentService *services.DocumentService) *DocumentHandler {
+	return &DocumentHandler{documentService: *documentService}
+}
+
+func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 	songID := c.Param("id")
 
-	documents, err := services.GetDocumentsBySongID(songID)
+	documents, err := h.documentService.GetDocumentsBySongID(songID)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to retrieve documents")
 		return
@@ -24,10 +31,10 @@ func GetAllDocumentsBySongIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": documents})
 }
 
-func GetDocumentByIDHandler(c *gin.Context) {
+func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 	docID := c.Param("id")
 
-	document, err := services.GetDocumentByID(docID)
+	document, err := h.documentService.GetDocumentByID(docID)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Document not found")
 		return
@@ -37,18 +44,16 @@ func GetDocumentByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": document})
 }
 
-func CreateDocumentHandler(c *gin.Context) {
-	songID := c.Param("id")
+func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
-
-	middleware.ValidateRequest(&document)(c)
-	if c.IsAborted() {
+	if err := c.ShouldBindJSON(&document); err != nil {
+		utils.HandleAPIError(c, err, "Invalid request data")
 		return
 	}
 
-	document.SongID = songID
+	document.SongID = c.Param("id")
 
-	err := services.CreateDocument(document)
+	_, err := h.documentService.CreateDocument(document)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to create document")
 		return
@@ -56,22 +61,22 @@ func CreateDocumentHandler(c *gin.Context) {
 
 	logrus.WithFields(logrus.Fields{
 		"document_id": document.ID,
-		"song_id":     songID,
+		"song_id":     document.SongID,
 	}).Info("Document created successfully")
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Document created successfully"})
 }
 
-func UpdateDocumentHandler(c *gin.Context) {
+func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 	docID := c.Param("id")
 	var docUpdate map[string]interface{}
 
-	middleware.ValidateRequest(&docUpdate)(c)
-	if c.IsAborted() {
+	if err := c.ShouldBindJSON(&docUpdate); err != nil {
+		utils.HandleAPIError(c, err, "Invalid request data")
 		return
 	}
 
-	err := services.UpdateDocument(docID, docUpdate)
+	err := h.documentService.UpdateDocument(docID, docUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update document")
 		return
@@ -85,10 +90,10 @@ func UpdateDocumentHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Document updated successfully"})
 }
 
-func DeleteDocumentHandler(c *gin.Context) {
+func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 	docID := c.Param("id")
 
-	err := services.DeleteDocument(docID)
+	err := h.documentService.DeleteDocument(docID)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to delete document")
 		return
