@@ -1,6 +1,7 @@
 package services_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
@@ -24,9 +25,54 @@ func TestSearchSongsByTitle(t *testing.T) {
 	result, _, err := service.SearchSongsByTitle("rock", 10, dynamo.PagingKey(nil))
 
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result))
+	assert.Len(t, result, 2)
 	assert.Equal(t, "Bohemian Rhapsody", result[0].Title)
+	mockSearchRepo.AssertExpectations(t)
+}
 
+func TestSearchSongsByTitle_NotFound(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	mockSearchRepo.On("SearchSongsByTitle", "unknown", 10, dynamo.PagingKey(nil)).Return([]models.Song{}, dynamo.PagingKey(nil), nil)
+
+	result, _, err := service.SearchSongsByTitle("unknown", 10, dynamo.PagingKey(nil))
+
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+	mockSearchRepo.AssertExpectations(t)
+}
+
+func TestSearchDocumentsByTitle(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	docs := []models.Document{
+		{ID: "doc1", SongID: "1", Type: "sheet_music", Instrument: []string{"Guitar"}, PDFURL: "https://s3.amazonaws.com/queen/bohemian.pdf"},
+	}
+
+	mockSearchRepo.On("SearchDocumentsByTitle", "bohemian", 10, dynamo.PagingKey(nil)).Return(docs, dynamo.PagingKey(nil), nil)
+
+	result, _, err := service.SearchDocumentsByTitle("bohemian", 10, dynamo.PagingKey(nil))
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "doc1", result[0].ID)
+	mockSearchRepo.AssertExpectations(t)
+}
+
+func TestSearchDocumentsByTitle_Error(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	mockSearchRepo.On("SearchDocumentsByTitle", "error", 10, dynamo.PagingKey(nil)).
+		Return([]models.Document{}, dynamo.PagingKey(nil), errors.New("database error"))
+
+	result, _, err := service.SearchDocumentsByTitle("error", 10, dynamo.PagingKey(nil))
+
+	assert.Error(t, err)
+	assert.Empty(t, result)
+	assert.Equal(t, "database error", err.Error())
 	mockSearchRepo.AssertExpectations(t)
 }
 
@@ -43,8 +89,20 @@ func TestFilterDocumentsByInstrument(t *testing.T) {
 	result, _, err := service.FilterDocumentsByInstrument("Guitar", 10, nil)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result))
+	assert.Len(t, result, 1)
 	assert.Equal(t, "doc1", result[0].ID)
+	mockSearchRepo.AssertExpectations(t)
+}
 
+func TestFilterDocumentsByInstrument_NoResults(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	mockSearchRepo.On("FilterDocumentsByInstrument", "Drums", 10, nil).Return([]models.Document{}, dynamo.PagingKey(nil), nil)
+
+	result, _, err := service.FilterDocumentsByInstrument("Drums", 10, nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, result)
 	mockSearchRepo.AssertExpectations(t)
 }

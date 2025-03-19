@@ -12,6 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	ErrResourceNotFound      = errors.New("requested resource not found")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrTokenGenerationFailed = errors.New("failed to generate authentication token")
+	ErrOperationNotAllowed   = errors.New("operation not allowed: conditions not met")
+	ErrThroughputExceeded    = errors.New("throughput limit exceeded, please try again later")
+)
+
 func HandleDynamoError(err error) error {
 	if err == nil {
 		return nil
@@ -21,10 +29,10 @@ func HandleDynamoError(err error) error {
 		switch awsErr.Code() {
 		case dynamodb.ErrCodeConditionalCheckFailedException:
 			logrus.WithError(awsErr).Warn("Operation not allowed: conditions not met")
-			return errors.New("operation not allowed: conditions not met")
+			return ErrOperationNotAllowed
 		case dynamodb.ErrCodeProvisionedThroughputExceededException:
 			logrus.WithError(awsErr).Warn("Throughput limit exceeded in DynamoDB")
-			return errors.New("throughput limit exceeded, please try again later")
+			return ErrThroughputExceeded
 		case dynamodb.ErrCodeResourceNotFoundException:
 			logrus.WithError(awsErr).Error("DynamoDB resource not found")
 			return ErrResourceNotFound
@@ -41,8 +49,6 @@ func HandleDynamoError(err error) error {
 	return errors.New("an unexpected error occurred")
 }
 
-var ErrResourceNotFound = errors.New("requested resource not found")
-
 func IsDynamoNotFoundError(err error) bool {
 	return errors.Is(err, ErrResourceNotFound)
 }
@@ -53,12 +59,19 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 	}
 
 	statusCode := http.StatusInternalServerError
+
 	switch {
 	case IsDynamoNotFoundError(err):
 		statusCode = http.StatusNotFound
-	case errors.Is(err, errors.New("operation not allowed: conditions not met")):
+	case errors.Is(err, ErrResourceNotFound):
+		statusCode = http.StatusNotFound
+	case errors.Is(err, ErrInvalidCredentials):
+		statusCode = http.StatusUnauthorized
+	case errors.Is(err, ErrTokenGenerationFailed):
+		statusCode = http.StatusInternalServerError
+	case errors.Is(err, ErrOperationNotAllowed):
 		statusCode = http.StatusForbidden
-	case errors.Is(err, errors.New("throughput limit exceeded, please try again later")):
+	case errors.Is(err, ErrThroughputExceeded):
 		statusCode = http.StatusTooManyRequests
 	default:
 		statusCode = http.StatusInternalServerError
@@ -82,10 +95,10 @@ func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
 	case IsDynamoNotFoundError(err):
 		statusCode = http.StatusNotFound
 		message = "Resource not found"
-	case errors.Is(err, errors.New("operation not allowed: conditions not met")):
+	case errors.Is(err, ErrOperationNotAllowed):
 		statusCode = http.StatusForbidden
 		message = "Operation not allowed"
-	case errors.Is(err, errors.New("throughput limit exceeded, please try again later")):
+	case errors.Is(err, ErrThroughputExceeded):
 		statusCode = http.StatusTooManyRequests
 		message = "Too many requests, try again later"
 	default:

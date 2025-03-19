@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,9 +39,13 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 		"exp":      expirationTime,
 	})
 
+	if len(s.jwtSecret) == 0 {
+		return "", utils.ErrTokenGenerationFailed
+	}
+
 	tokenString, err := token.SignedString(s.jwtSecret)
 	if err != nil {
-		return "", err
+		return "", utils.ErrTokenGenerationFailed
 	}
 
 	return tokenString, nil
