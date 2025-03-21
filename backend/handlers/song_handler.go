@@ -11,10 +11,10 @@ import (
 )
 
 type SongHandler struct {
-	songService *services.SongService
+	songService services.SongServiceInterface
 }
 
-func NewSongHandler(songService *services.SongService) *SongHandler {
+func NewSongHandler(songService services.SongServiceInterface) *SongHandler {
 	return &SongHandler{songService: songService}
 }
 
@@ -37,7 +37,10 @@ func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 }
 
 func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
-	id := c.Param("id")
+	id, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
 	song, err := h.songService.GetSongByID(id)
 	if err != nil {
@@ -52,8 +55,16 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.HandleAPIError(c, err, "Invalid song data")
+		logrus.WithError(err).Warn("Invalid song data")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid song data")
 		return
+	}
+
+	for _, doc := range req.Documents {
+		if err := utils.ValidateDocument(doc); err != nil {
+			utils.HandleAPIError(c, err, "Invalid document data")
+			return
+		}
 	}
 
 	song := models.Song{
@@ -73,16 +84,24 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 }
 
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
-	id := c.Param("id")
-	var songUpdate map[string]interface{}
+	id, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
+	var songUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
+		logrus.WithError(err).Warn("Invalid update data")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		return
+	}
+
+	if err := utils.ValidateSongUpdate(songUpdate); err != nil {
 		utils.HandleAPIError(c, err, "Invalid request data")
 		return
 	}
 
-	err := h.songService.UpdateSong(id, songUpdate)
-	if err != nil {
+	if err := h.songService.UpdateSong(id, songUpdate); err != nil {
 		utils.HandleAPIError(c, err, "Failed to update song")
 		return
 	}
@@ -96,7 +115,10 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 }
 
 func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
-	id := c.Param("id")
+	id, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
 	err := h.songService.DeleteSongWithDocuments(id)
 	if err != nil {

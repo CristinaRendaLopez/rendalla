@@ -10,10 +10,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type AuthServiceInterface interface {
+	AuthenticateUser(username, password string) (string, error)
+	GetAuthCredentials() (*repository.AuthCredentials, error)
+}
+
 type AuthService struct {
 	repo      repository.AuthRepository
 	jwtSecret []byte
 }
+
+var _ AuthServiceInterface = (*AuthService)(nil)
 
 func NewAuthService(repo repository.AuthRepository, jwtSecret string) *AuthService {
 	return &AuthService{repo: repo, jwtSecret: []byte(jwtSecret)}

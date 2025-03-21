@@ -9,10 +9,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type SongServiceInterface interface {
+	GetAllSongs() ([]models.Song, error)
+	GetSongByID(id string) (*models.Song, error)
+	CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error)
+	UpdateSong(id string, updates map[string]interface{}) error
+	DeleteSongWithDocuments(id string) error
+}
+
 type SongService struct {
 	songRepo repository.SongRepository
 	docRepo  repository.DocumentRepository
 }
+
+var _ SongServiceInterface = (*SongService)(nil)
 
 func NewSongService(songRepo repository.SongRepository, docRepo repository.DocumentRepository) *SongService {
 	return &SongService{songRepo: songRepo, docRepo: docRepo}

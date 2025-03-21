@@ -13,11 +13,15 @@ import (
 )
 
 var (
-	ErrResourceNotFound      = errors.New("requested resource not found")
 	ErrInvalidCredentials    = errors.New("invalid credentials")
 	ErrTokenGenerationFailed = errors.New("failed to generate authentication token")
-	ErrOperationNotAllowed   = errors.New("operation not allowed: conditions not met")
-	ErrThroughputExceeded    = errors.New("throughput limit exceeded, please try again later")
+	ErrBadRequest            = errors.New("bad request")
+	ErrValidationFailed      = errors.New("validation failed")
+	ErrResourceNotFound      = errors.New("resource not found")
+	ErrOperationNotAllowed   = errors.New("operation not allowed")
+	ErrThroughputExceeded    = errors.New("throughput limit exceeded")
+	ErrInternalServer        = errors.New("internal server error")
+	ErrUnauthorized          = errors.New("unauthorized access")
 )
 
 func HandleDynamoError(err error) error {
@@ -58,23 +62,24 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 		return
 	}
 
-	statusCode := http.StatusInternalServerError
+	var statusCode int
 
 	switch {
-	case IsDynamoNotFoundError(err):
-		statusCode = http.StatusNotFound
+	case errors.Is(err, ErrBadRequest), errors.Is(err, ErrValidationFailed):
+		statusCode = http.StatusBadRequest
+	case errors.As(err, &gin.Error{}):
+		statusCode = http.StatusBadRequest
 	case errors.Is(err, ErrResourceNotFound):
 		statusCode = http.StatusNotFound
-	case errors.Is(err, ErrInvalidCredentials):
-		statusCode = http.StatusUnauthorized
-	case errors.Is(err, ErrTokenGenerationFailed):
-		statusCode = http.StatusInternalServerError
 	case errors.Is(err, ErrOperationNotAllowed):
 		statusCode = http.StatusForbidden
 	case errors.Is(err, ErrThroughputExceeded):
 		statusCode = http.StatusTooManyRequests
+	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrUnauthorized):
+		statusCode = http.StatusUnauthorized
 	default:
 		statusCode = http.StatusInternalServerError
+		err = ErrInternalServer
 	}
 
 	logrus.WithError(err).Error(message)

@@ -11,15 +11,18 @@ import (
 )
 
 type DocumentHandler struct {
-	documentService services.DocumentService
+	documentService services.DocumentServiceInterface
 }
 
-func NewDocumentHandler(documentService *services.DocumentService) *DocumentHandler {
-	return &DocumentHandler{documentService: *documentService}
+func NewDocumentHandler(documentService services.DocumentServiceInterface) *DocumentHandler {
+	return &DocumentHandler{documentService: documentService}
 }
 
 func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
-	songID := c.Param("id")
+	songID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
 	documents, err := h.documentService.GetDocumentsBySongID(songID)
 	if err != nil {
@@ -32,7 +35,10 @@ func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 }
 
 func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
-	docID := c.Param("id")
+	docID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
 	document, err := h.documentService.GetDocumentByID(docID)
 	if err != nil {
@@ -47,32 +53,52 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 	if err := c.ShouldBindJSON(&document); err != nil {
-		utils.HandleAPIError(c, err, "Invalid request data")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
 		return
 	}
 
-	document.SongID = c.Param("id")
+	songID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
+	document.SongID = songID
 
-	_, err := h.documentService.CreateDocument(document)
+	if err := utils.ValidateDocument(document); err != nil {
+		utils.HandleAPIError(c, err, "Invalid document data")
+		return
+	}
+
+	documentID, err := h.documentService.CreateDocument(document)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to create document")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"document_id": document.ID,
+		"document_id": documentID,
 		"song_id":     document.SongID,
 	}).Info("Document created successfully")
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Document created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Document created successfully",
+		"document_id": documentID,
+	})
 }
 
 func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
-	docID := c.Param("id")
-	var docUpdate map[string]interface{}
+	docID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
+	var docUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid request data")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		return
+	}
+
+	if err := utils.ValidateDocumentUpdate(docUpdate); err != nil {
+		utils.HandleAPIError(c, err, "Invalid document update data")
 		return
 	}
 
@@ -91,7 +117,10 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 }
 
 func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
-	docID := c.Param("id")
+	docID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
 
 	err := h.documentService.DeleteDocument(docID)
 	if err != nil {

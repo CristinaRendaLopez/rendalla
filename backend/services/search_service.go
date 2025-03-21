@@ -5,9 +5,17 @@ import (
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 )
 
+type SearchServiceInterface interface {
+	SearchSongsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error)
+	SearchDocumentsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error)
+	FilterDocumentsByInstrument(instrument string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error)
+}
+
 type SearchService struct {
 	repo repository.SearchRepository
 }
+
+var _ SearchServiceInterface = (*SearchService)(nil)
 
 func NewSearchService(repo repository.SearchRepository) *SearchService {
 	return &SearchService{repo: repo}

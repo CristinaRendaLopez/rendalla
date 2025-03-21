@@ -8,9 +8,19 @@ import (
 	"github.com/google/uuid"
 )
 
+type DocumentServiceInterface interface {
+	GetDocumentsBySongID(songID string) ([]models.Document, error)
+	GetDocumentByID(id string) (*models.Document, error)
+	CreateDocument(document models.Document) (string, error)
+	UpdateDocument(id string, updates map[string]interface{}) error
+	DeleteDocument(id string) error
+}
+
 type DocumentService struct {
 	repo repository.DocumentRepository
 }
+
+var _ DocumentServiceInterface = (*DocumentService)(nil)
 
 func NewDocumentService(repo repository.DocumentRepository) *DocumentService {
 	return &DocumentService{repo: repo}

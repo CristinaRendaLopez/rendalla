@@ -10,22 +10,22 @@ import (
 )
 
 type AuthHandler struct {
-	authService services.AuthService
+	authService services.AuthServiceInterface
 }
 
-func NewAuthHandler(authService *services.AuthService) *AuthHandler {
-	return &AuthHandler{authService: *authService}
+func NewAuthHandler(authService services.AuthServiceInterface) *AuthHandler {
+	return &AuthHandler{authService: authService}
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.HandleAPIError(c, err, "Invalid request data")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
 		return
 	}
 
@@ -35,17 +35,29 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	logrus.WithField("username", req.Username).Info("User authenticated successfully")
+	logrus.WithFields(logrus.Fields{
+		"username": req.Username,
+	}).Info("User authenticated successfully")
+
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 func (h *AuthHandler) MeHandler(c *gin.Context) {
 	username, exists := c.Get("username")
 	if !exists {
-		utils.HandleAPIError(c, nil, "Unauthorized")
+		utils.HandleAPIError(c, utils.ErrUnauthorized, "Unauthorized")
 		return
 	}
 
-	logrus.WithField("username", username).Info("User details retrieved successfully")
-	c.JSON(http.StatusOK, gin.H{"username": username, "role": "admin"})
+	strUsername, ok := username.(string)
+	if !ok || utils.IsEmptyString(strUsername) {
+		utils.HandleAPIError(c, utils.ErrUnauthorized, "Unauthorized")
+		return
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"username": strUsername,
+	}).Info("User details retrieved successfully")
+
+	c.JSON(http.StatusOK, gin.H{"username": strUsername, "role": "admin"})
 }
