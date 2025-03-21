@@ -2,10 +2,8 @@ package services
 
 import (
 	"errors"
-	"time"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -15,15 +13,28 @@ type AuthServiceInterface interface {
 	GetAuthCredentials() (*repository.AuthCredentials, error)
 }
 
+type Clock interface {
+	NowUnix() int64
+}
+
+type TokenGenerator interface {
+	GenerateToken(claims jwt.MapClaims) (string, error)
+}
+
 type AuthService struct {
-	repo      repository.AuthRepository
-	jwtSecret []byte
+	repo           repository.AuthRepository
+	clock          Clock
+	tokenGenerator TokenGenerator
 }
 
 var _ AuthServiceInterface = (*AuthService)(nil)
 
-func NewAuthService(repo repository.AuthRepository, jwtSecret string) *AuthService {
-	return &AuthService{repo: repo, jwtSecret: []byte(jwtSecret)}
+func NewAuthService(repo repository.AuthRepository, clock Clock, tokenGen TokenGenerator) *AuthService {
+	return &AuthService{
+		repo:           repo,
+		clock:          clock,
+		tokenGenerator: tokenGen,
+	}
 }
 
 func (s *AuthService) AuthenticateUser(username, password string) (string, error) {
@@ -40,22 +51,18 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 		return "", errors.New("invalid credentials")
 	}
 
-	expirationTime := time.Now().Add(72 * time.Hour).Unix()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	exp := s.clock.NowUnix() + 72*3600
+	claims := jwt.MapClaims{
 		"username": username,
-		"exp":      expirationTime,
-	})
-
-	if len(s.jwtSecret) == 0 {
-		return "", utils.ErrTokenGenerationFailed
+		"exp":      exp,
 	}
 
-	tokenString, err := token.SignedString(s.jwtSecret)
+	token, err := s.tokenGenerator.GenerateToken(claims)
 	if err != nil {
-		return "", utils.ErrTokenGenerationFailed
+		return "", err
 	}
 
-	return tokenString, nil
+	return token, nil
 }
 
 func (s *AuthService) GetAuthCredentials() (*repository.AuthCredentials, error) {

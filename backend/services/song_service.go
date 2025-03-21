@@ -1,12 +1,8 @@
 package services
 
 import (
-	"time"
-
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 type SongServiceInterface interface {
@@ -17,15 +13,33 @@ type SongServiceInterface interface {
 	DeleteSongWithDocuments(id string) error
 }
 
-type SongService struct {
-	songRepo repository.SongRepository
-	docRepo  repository.DocumentRepository
+type IDGenerator interface {
+	NewID() string
 }
 
-var _ SongServiceInterface = (*SongService)(nil)
+type TimeProvider interface {
+	Now() string
+}
 
-func NewSongService(songRepo repository.SongRepository, docRepo repository.DocumentRepository) *SongService {
-	return &SongService{songRepo: songRepo, docRepo: docRepo}
+type SongService struct {
+	songRepo     repository.SongRepository
+	docRepo      repository.DocumentRepository
+	idGen        IDGenerator
+	timeProvider TimeProvider
+}
+
+func NewSongService(
+	songRepo repository.SongRepository,
+	docRepo repository.DocumentRepository,
+	idGen IDGenerator,
+	timeProvider TimeProvider,
+) *SongService {
+	return &SongService{
+		songRepo:     songRepo,
+		docRepo:      docRepo,
+		idGen:        idGen,
+		timeProvider: timeProvider,
+	}
 }
 
 func (s *SongService) GetAllSongs() ([]models.Song, error) {
@@ -37,8 +51,8 @@ func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 }
 
 func (s *SongService) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
-	song.ID = uuid.New().String()
-	now := time.Now().UTC().Format(time.RFC3339)
+	song.ID = s.idGen.NewID()
+	now := s.timeProvider.Now()
 	song.CreatedAt, song.UpdatedAt = now, now
 
 	songID, err := s.songRepo.CreateSongWithDocuments(song, documents)
@@ -48,19 +62,19 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 
 	for _, doc := range documents {
 		doc.SongID = songID
-		_, err := s.docRepo.CreateDocument(doc)
-		if err != nil {
-			logrus.WithError(err).Error("Failed to create document for song")
+		doc.ID = s.idGen.NewID()
+		doc.CreatedAt, doc.UpdatedAt = now, now
+
+		if _, err := s.docRepo.CreateDocument(doc); err != nil {
 			return "", err
 		}
 	}
 
-	logrus.WithField("song_id", songID).Info("Song and documents created successfully")
 	return songID, nil
 }
 
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
-	updates["updated_at"] = time.Now().UTC().Format(time.RFC3339)
+	updates["updated_at"] = s.timeProvider.Now()
 	return s.songRepo.UpdateSong(id, updates)
 }
 

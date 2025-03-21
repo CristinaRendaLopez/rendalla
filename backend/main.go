@@ -9,6 +9,7 @@ import (
 	"github.com/CristinaRendaLopez/rendalla-backend/middleware"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -32,10 +33,15 @@ func main() {
 	authRepo := repository.NewAWSAuthRepository()
 
 	// Initialize services
-	songService := services.NewSongService(songRepo, documentRepo)
-	documentService := services.NewDocumentService(documentRepo)
+	idGen := &utils.UUIDGenerator{}
+	timeProvider := &utils.UTCTimeProvider{}
+	clock := &utils.RealClock{}
+	tokenGen := &utils.JWTTokenGenerator{Secret: []byte(os.Getenv("JWT_SECRET"))}
+
+	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
+	documentService := services.NewDocumentService(documentRepo, idGen, timeProvider)
 	searchService := services.NewSearchService(searchRepo)
-	authService := services.NewAuthService(authRepo, os.Getenv("JWT_SECRET"))
+	authService := services.NewAuthService(authRepo, clock, tokenGen)
 
 	// Initialize handlers
 	songHandler := handlers.NewSongHandler(songService)
