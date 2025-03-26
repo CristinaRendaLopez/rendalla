@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
@@ -16,7 +17,7 @@ func NewDynamoSearchRepository(db *dynamo.DB) *DynamoSearchRepository {
 
 func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
 	var songs []models.Song
-	query := d.db.Table("songs").
+	query := d.db.Table(bootstrap.SongTableName).
 		Scan().
 		Filter("contains(title, ?)", title).
 		Limit(int64(limit))
@@ -38,7 +39,7 @@ func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nex
 
 func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
-	query := d.db.Table("documents").
+	query := d.db.Table(bootstrap.DocumentTableName).
 		Scan().
 		Filter("contains(title, ?)", title).
 		Limit(int64(limit))
@@ -60,7 +61,7 @@ func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int,
 
 func (d *DynamoSearchRepository) FilterDocumentsByInstrument(instrument string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
-	query := d.db.Table("documents").
+	query := d.db.Table(bootstrap.DocumentTableName).
 		Scan().
 		Filter("contains(instrument, ?)", instrument).
 		Limit(int64(limit))

@@ -1,8 +1,8 @@
-package main
+package integration_tests
 
 import (
-	"fmt"
 	"os"
+	"testing"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
@@ -10,11 +10,20 @@ import (
 	"github.com/CristinaRendaLopez/rendalla-backend/router"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/gin-gonic/gin"
+	"github.com/guregu/dynamo"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
 
-func main() {
+var (
+	TestRouter *gin.Engine
+)
+
+func TestMain(m *testing.M) {
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		logrus.Warn("Could not load .env file, using default values")
@@ -22,14 +31,17 @@ func main() {
 
 	// Initialize configuration and database
 	bootstrap.LoadConfig()
-	bootstrap.InitDB()
 
-	db := bootstrap.DB
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region:   aws.String(bootstrap.AWSRegion),
+		Endpoint: aws.String("http://localhost:8000"),
+	}))
+	db := dynamo.New(sess)
 
 	// Initialize repositories
 	documentRepo := repository.NewDynamoDocumentRepository(db)
 	songRepo := repository.NewDynamoSongRepository(db, documentRepo)
-	searchRepo := repository.NewDynamoSearchRepository(bootstrap.DB)
+	searchRepo := repository.NewDynamoSearchRepository(db)
 	authRepo := repository.NewAWSAuthRepository()
 
 	// Initialize services
@@ -43,20 +55,16 @@ func main() {
 	searchService := services.NewSearchService(searchRepo)
 	authService := services.NewAuthService(authRepo, clock, tokenGen)
 
-	// Initialize handlers
+	// Crear handlers
 	songHandler := handlers.NewSongHandler(songService)
-	documentHandler := handlers.NewDocumentHandler(documentService)
+	docHandler := handlers.NewDocumentHandler(documentService)
 	searchHandler := handlers.NewSearchHandler(searchService)
 	authHandler := handlers.NewAuthHandler(authService)
 
-	router := router.SetupRouter(songHandler, documentHandler, searchHandler, authHandler)
+	// Inicializar router para todos los tests
+	TestRouter = router.SetupRouter(songHandler, docHandler, searchHandler, authHandler)
 
-	// Get and validate port
-	port := bootstrap.AppPort
-	if port == "" {
-		port = "8080"
-	}
-
-	logrus.Infof("Rendalla backend is running on port %s", port)
-	router.Run(fmt.Sprintf(":%s", port))
+	// Ejecutar los tests
+	code := m.Run()
+	os.Exit(code)
 }

@@ -10,15 +10,20 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
+	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
 
 type DynamoSongRepository struct {
+	db      *dynamo.DB
 	docRepo DocumentRepository
 }
 
-func NewDynamoSongRepository(docRepo DocumentRepository) *DynamoSongRepository {
-	return &DynamoSongRepository{docRepo: docRepo}
+func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoSongRepository {
+	return &DynamoSongRepository{
+		db:      db,
+		docRepo: docRepo,
+	}
 }
 
 func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
@@ -36,7 +41,7 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 		Item:      songItem,
 	}
 
-	_, err = bootstrap.DB.Client().PutItem(input)
+	_, err = d.db.Client().PutItem(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create song")
 		return "", utils.HandleDynamoError(err)
@@ -57,7 +62,7 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 
 func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {
 	var song models.Song
-	err := bootstrap.DB.Table(bootstrap.SongTableName).Get("id", id).One(&song)
+	err := d.db.Table(bootstrap.SongTableName).Get("id", id).One(&song)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to retrieve song")
 		return nil, utils.HandleDynamoError(err)
@@ -68,7 +73,7 @@ func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {
 
 func (d *DynamoSongRepository) UpdateSong(id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now().UTC().Format(time.RFC3339)
-	update := bootstrap.DB.Table(bootstrap.SongTableName).Update("id", id)
+	update := d.db.Table(bootstrap.SongTableName).Update("id", id)
 
 	for key, value := range updates {
 		update = update.Set(key, value)
@@ -116,7 +121,7 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	}
 
 	input := &dynamodb.TransactWriteItemsInput{TransactItems: transactItems}
-	_, err = bootstrap.DB.Client().TransactWriteItems(input)
+	_, err = d.db.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete song and documents")
 		return err
@@ -128,7 +133,7 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 
 func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 	var songs []models.Song
-	err := bootstrap.DB.Table(bootstrap.SongTableName).Scan().All(&songs)
+	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to retrieve songs")
 		return nil, utils.HandleDynamoError(err)

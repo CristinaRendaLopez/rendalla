@@ -10,18 +10,21 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
+	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
 
-type DynamoDocumentRepository struct{}
+type DynamoDocumentRepository struct {
+	db *dynamo.DB
+}
 
-func NewDynamoDocumentRepository() *DynamoDocumentRepository {
-	return &DynamoDocumentRepository{}
+func NewDynamoDocumentRepository(db *dynamo.DB) *DynamoDocumentRepository {
+	return &DynamoDocumentRepository{db: db}
 }
 
 func (d *DynamoDocumentRepository) GetDocumentByID(id string) (*models.Document, error) {
 	var document models.Document
-	err := bootstrap.DB.Table(bootstrap.DocumentTableName).Get("id", id).One(&document)
+	err := d.db.Table(bootstrap.DocumentTableName).Get("id", id).One(&document)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Document not found")
 		return nil, utils.HandleDynamoError(err)
@@ -44,7 +47,7 @@ func (d *DynamoDocumentRepository) CreateDocument(doc models.Document) (string, 
 		Item:      docItem,
 	}
 
-	_, err = bootstrap.DB.Client().PutItem(input)
+	_, err = d.db.Client().PutItem(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create document")
 		return "", utils.HandleDynamoError(err)
@@ -56,7 +59,7 @@ func (d *DynamoDocumentRepository) CreateDocument(doc models.Document) (string, 
 
 func (d *DynamoDocumentRepository) UpdateDocument(id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now().UTC().Format(time.RFC3339)
-	update := bootstrap.DB.Table(bootstrap.DocumentTableName).Update("id", id)
+	update := d.db.Table(bootstrap.DocumentTableName).Update("id", id)
 
 	for key, value := range updates {
 		update = update.Set(key, value)
@@ -73,7 +76,7 @@ func (d *DynamoDocumentRepository) UpdateDocument(id string, updates map[string]
 }
 
 func (d *DynamoDocumentRepository) DeleteDocument(id string) error {
-	err := bootstrap.DB.Table(bootstrap.DocumentTableName).Delete("id", id).Run()
+	err := d.db.Table(bootstrap.DocumentTableName).Delete("id", id).Run()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to delete document")
 		return utils.HandleDynamoError(err)
@@ -85,7 +88,7 @@ func (d *DynamoDocumentRepository) DeleteDocument(id string) error {
 
 func (d *DynamoDocumentRepository) GetDocumentsBySongID(songID string) ([]models.Document, error) {
 	var documents []models.Document
-	err := bootstrap.DB.Table(bootstrap.DocumentTableName).Scan().Filter("song_id = ?", songID).All(&documents)
+	err := d.db.Table(bootstrap.DocumentTableName).Scan().Filter("song_id = ?", songID).All(&documents)
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": songID, "error": err}).Error("Failed to retrieve documents")
