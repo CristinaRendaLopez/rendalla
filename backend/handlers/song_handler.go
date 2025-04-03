@@ -55,32 +55,43 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logrus.WithError(err).Warn("Invalid song data")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid song data")
+		logrus.WithError(err).Warn("Invalid JSON payload")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
-
-	for _, doc := range req.Documents {
-		if err := utils.ValidateDocument(doc); err != nil {
-			utils.HandleAPIError(c, err, "Invalid document data")
-			return
-		}
-	}
-
 	song := models.Song{
 		Title:  req.Title,
 		Author: req.Author,
 		Genres: req.Genres,
 	}
 
-	_, err := h.songService.CreateSongWithDocuments(song, req.Documents)
+	if err := utils.ValidateSong(song); err != nil {
+		utils.HandleAPIError(c, err, "Invalid song data")
+		return
+	}
+
+	for i, doc := range req.Documents {
+		if err := utils.ValidateDocument(doc); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"index": i,
+				"error": err.Error(),
+			}).Warn("Invalid document in song request")
+			utils.HandleAPIError(c, err, "Invalid document data")
+			return
+		}
+	}
+
+	songID, err := h.songService.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to create song")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{"title": req.Title, "author": req.Author}).Info("Song created successfully")
-	c.JSON(http.StatusCreated, gin.H{"message": "Song created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Song created successfully",
+		"song_id": songID,
+	})
 }
 
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
@@ -91,13 +102,13 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 
 	var songUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
-		logrus.WithError(err).Warn("Invalid update data")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		logrus.WithError(err).Warn("Invalid JSON payload")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
 	if err := utils.ValidateSongUpdate(songUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid request data")
+		utils.HandleAPIError(c, err, "Invalid song data")
 		return
 	}
 

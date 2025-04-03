@@ -26,9 +26,10 @@ func (d *DynamoDocumentRepository) GetDocumentByID(id string) (*models.Document,
 	var document models.Document
 	err := d.db.Table(bootstrap.DocumentTableName).Get("id", id).One(&document)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Document not found")
+		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to retrieve document")
 		return nil, utils.HandleDynamoError(err)
 	}
+	logrus.WithField("document_id", id).Info("Document retrieved successfully")
 	return &document, nil
 }
 
@@ -39,7 +40,8 @@ func (d *DynamoDocumentRepository) CreateDocument(doc models.Document) (string, 
 
 	docItem, err := dynamodbattribute.MarshalMap(doc)
 	if err != nil {
-		return "", err
+		logrus.WithError(err).Error("Failed to marshal document")
+		return "", utils.ErrInternalServer
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -49,7 +51,7 @@ func (d *DynamoDocumentRepository) CreateDocument(doc models.Document) (string, 
 
 	_, err = d.db.Client().PutItem(input)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to create document")
+		logrus.WithError(err).Error("Failed to create document in DynamoDB")
 		return "", utils.HandleDynamoError(err)
 	}
 

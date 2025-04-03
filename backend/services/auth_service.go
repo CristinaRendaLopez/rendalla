@@ -1,10 +1,10 @@
 package services
 
 import (
-	"errors"
-
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -44,11 +44,11 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 	}
 
 	if username != creds.Username {
-		return "", errors.New("invalid credentials")
+		return "", utils.ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(creds.Password), []byte(password)); err != nil {
-		return "", errors.New("invalid credentials")
+		return "", utils.ErrInvalidCredentials
 	}
 
 	exp := s.clock.NowUnix() + 72*3600
@@ -59,7 +59,8 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 
 	token, err := s.tokenGenerator.GenerateToken(claims)
 	if err != nil {
-		return "", err
+		logrus.WithError(err).Error("Failed to generate JWT token")
+		return "", utils.ErrTokenGenerationFailed
 	}
 
 	return token, nil

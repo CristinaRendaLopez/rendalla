@@ -68,6 +68,24 @@ func IsEmptyString(val string) bool {
 	return strings.TrimSpace(val) == ""
 }
 
+func ValidateSong(song models.Song) error {
+	if IsEmptyString(song.Title) || len(song.Title) < 3 {
+		return ErrValidationFailed
+	}
+	if IsEmptyString(song.Author) {
+		return ErrValidationFailed
+	}
+	if len(song.Genres) == 0 {
+		return ErrValidationFailed
+	}
+	for _, g := range song.Genres {
+		if len(g) < 3 {
+			return ErrValidationFailed
+		}
+	}
+	return nil
+}
+
 func ValidateDocumentUpdate(update map[string]interface{}) error {
 	if err := ValidateNonEmptyStringField(update, "type"); err != nil {
 		return err

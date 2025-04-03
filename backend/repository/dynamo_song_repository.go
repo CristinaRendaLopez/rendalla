@@ -32,8 +32,10 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 	song.CreatedAt, song.UpdatedAt = now, now
 
 	songItem, err := dynamodbattribute.MarshalMap(song)
+
 	if err != nil {
-		return "", err
+		logrus.WithError(err).Error("Failed to marshal song item")
+		return "", utils.ErrInternalServer
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -43,16 +45,17 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 
 	_, err = d.db.Client().PutItem(input)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to create song")
+		logrus.WithError(err).Error("Failed to create song in DynamoDB")
 		return "", utils.HandleDynamoError(err)
 	}
 
 	for i := range documents {
 		documents[i].SongID = song.ID
-		_, err := d.docRepo.CreateDocument(documents[i])
-		if err != nil {
-			logrus.WithError(err).Error("Failed to create document for song")
-			return "", err
+		if _, err := d.docRepo.CreateDocument(documents[i]); err != nil {
+			logrus.WithError(err).
+				WithFields(logrus.Fields{"song_id": song.ID, "doc_index": i}).
+				Error("Failed to create associated document")
+			return "", utils.ErrOperationNotAllowed
 		}
 	}
 
@@ -97,7 +100,8 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 
 	documents, err := d.docRepo.GetDocumentsBySongID(songID)
 	if err != nil && !utils.IsDynamoNotFoundError(err) {
-		return err
+		logrus.WithField("song_id", songID).WithError(err).Error("Failed to fetch documents before deletion")
+		return utils.HandleDynamoError(err)
 	}
 
 	var transactItems []*dynamodb.TransactWriteItem
@@ -124,7 +128,7 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	_, err = d.db.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete song and documents")
-		return err
+		return utils.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", songID).Info("Song and associated documents deleted successfully")

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
@@ -31,7 +32,16 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 
 	token, err := h.authService.AuthenticateUser(req.Username, req.Password)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Invalid credentials")
+		message := "Authentication failed"
+		switch {
+		case errors.Is(err, utils.ErrInvalidCredentials):
+			message = "Invalid credentials"
+		case errors.Is(err, utils.ErrTokenGenerationFailed):
+			message = "Failed to generate token"
+		case errors.Is(err, utils.ErrInternalServer):
+			message = "Server error during authentication"
+		}
+		utils.HandleAPIError(c, err, message)
 		return
 	}
 

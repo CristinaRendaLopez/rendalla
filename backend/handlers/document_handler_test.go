@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -43,7 +42,7 @@ func TestGetAllDocumentsBySongIDHandler_Success(t *testing.T) {
 func TestGetAllDocumentsBySongIDHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("GetDocumentsBySongID", "1").Return([]models.Document{}, errors.New("failed to retrieve documents"))
+	mockService.On("GetDocumentsBySongID", "1").Return([]models.Document{}, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
@@ -159,7 +158,7 @@ func TestCreateDocumentHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
 	validDoc := `{"type": "score", "instrument": ["violin"], "pdf_url": "file.pdf"}`
-	mockService.On("CreateDocument", mock.Anything).Return("", errors.New("creation failed"))
+	mockService.On("CreateDocument", mock.Anything).Return("", utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -249,7 +248,7 @@ func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
 	updates := map[string]interface{}{"type": "score"}
-	mockService.On("UpdateDocument", "doc123", updates).Return(errors.New("update failed"))
+	mockService.On("UpdateDocument", "doc123", updates).Return(utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": "score"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -290,7 +289,7 @@ func TestDeleteDocumentHandler_MissingID(t *testing.T) {
 func TestDeleteDocumentHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("DeleteDocument", "doc1").Return(errors.New("failed to delete document"))
+	mockService.On("DeleteDocument", "doc1").Return(utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/doc1", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})

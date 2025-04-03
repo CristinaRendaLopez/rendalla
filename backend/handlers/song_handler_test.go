@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -131,7 +130,7 @@ func TestCreateSongHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
 
 	data := `{"title": "Imagine", "author": "John Lennon", "genres": ["Rock"]}`
-	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", errors.New("error"))
+	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -230,7 +229,7 @@ func TestUpdateSongHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
 
 	update := map[string]interface{}{"title": "New Title"}
-	mockService.On("UpdateSong", "1", update).Return(errors.New("update failed"))
+	mockService.On("UpdateSong", "1", update).Return(utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -259,7 +258,7 @@ func TestDeleteSongWithDocumentsHandler_Success(t *testing.T) {
 
 func TestDeleteSongWithDocumentsHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("DeleteSongWithDocuments", "999").Return(errors.New("delete failed"))
+	mockService.On("DeleteSongWithDocuments", "999").Return(utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/999", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})

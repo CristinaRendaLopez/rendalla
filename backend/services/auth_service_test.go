@@ -1,12 +1,12 @@
 package services_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
@@ -23,7 +23,7 @@ func setupAuthServiceTest() (*services.AuthService, *mocks.MockAuthRepository, *
 func TestAuthenticateUser_Success(t *testing.T) {
 	service, authRepo, clock, tokenGen := setupAuthServiceTest()
 
-	hashedPwd, _ := bcryptHash("secret")
+	hashedPwd, _ := hashPassword("secret")
 	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
 
 	authRepo.On("GetAuthCredentials").Return(creds, nil)
@@ -50,7 +50,7 @@ func TestAuthenticateUser_InvalidUsername(t *testing.T) {
 	token, err := service.AuthenticateUser("wrong", "secret")
 
 	assert.Error(t, err)
-	assert.Equal(t, "invalid credentials", err.Error())
+	assert.ErrorIs(t, err, utils.ErrInvalidCredentials)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -59,7 +59,7 @@ func TestAuthenticateUser_InvalidUsername(t *testing.T) {
 func TestAuthenticateUser_InvalidPassword(t *testing.T) {
 	service, authRepo, _, _ := setupAuthServiceTest()
 
-	hashedPwd, _ := bcryptHash("realpass")
+	hashedPwd, _ := hashPassword("realpass")
 	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
 
 	authRepo.On("GetAuthCredentials").Return(creds, nil)
@@ -67,7 +67,7 @@ func TestAuthenticateUser_InvalidPassword(t *testing.T) {
 	token, err := service.AuthenticateUser("admin", "wrongpass")
 
 	assert.Error(t, err)
-	assert.Equal(t, "invalid credentials", err.Error())
+	assert.ErrorIs(t, err, utils.ErrInvalidCredentials)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -76,12 +76,12 @@ func TestAuthenticateUser_InvalidPassword(t *testing.T) {
 func TestAuthenticateUser_RepoError(t *testing.T) {
 	service, authRepo, _, _ := setupAuthServiceTest()
 
-	authRepo.On("GetAuthCredentials").Return(nil, errors.New("db error"))
+	authRepo.On("GetAuthCredentials").Return(nil, utils.ErrInternalServer)
 
 	token, err := service.AuthenticateUser("admin", "secret")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db error")
+	assert.ErrorIs(t, err, utils.ErrInternalServer)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -90,18 +90,18 @@ func TestAuthenticateUser_RepoError(t *testing.T) {
 func TestAuthenticateUser_TokenGenerationError(t *testing.T) {
 	service, authRepo, clock, tokenGen := setupAuthServiceTest()
 
-	hashedPwd, _ := bcryptHash("secret")
+	hashedPwd, _ := hashPassword("secret")
 	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
 
 	authRepo.On("GetAuthCredentials").Return(creds, nil)
 	clock.On("NowUnix").Return(1000)
 	claims := jwt.MapClaims{"username": "admin", "exp": int64(1000 + 72*3600)}
-	tokenGen.On("GenerateToken", claims).Return("", errors.New("token error"))
+	tokenGen.On("GenerateToken", claims).Return("", utils.ErrTokenGenerationFailed)
 
 	token, err := service.AuthenticateUser("admin", "secret")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "token error")
+	assert.ErrorIs(t, err, utils.ErrTokenGenerationFailed)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -122,7 +122,7 @@ func TestGetAuthCredentials_Success(t *testing.T) {
 	authRepo.AssertExpectations(t)
 }
 
-func bcryptHash(pwd string) (string, error) {
+func hashPassword(pwd string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
 	return string(hash), err
 }

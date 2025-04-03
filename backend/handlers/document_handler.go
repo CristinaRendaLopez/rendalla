@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
@@ -53,7 +54,8 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 	if err := c.ShouldBindJSON(&document); err != nil {
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		logrus.WithError(err).Warn("Invalid JSON payload")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
@@ -93,7 +95,8 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 
 	var docUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		logrus.WithError(err).Warn("Invalid JSON payload")
+		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
@@ -124,7 +127,11 @@ func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 
 	err := h.documentService.DeleteDocument(docID)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to delete document")
+		message := "Failed to delete document"
+		if errors.Is(err, utils.ErrResourceNotFound) {
+			message = "Document not found"
+		}
+		utils.HandleAPIError(c, err, message)
 		return
 	}
 

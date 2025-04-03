@@ -3,6 +3,7 @@ package services
 import (
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 )
 
 type SongServiceInterface interface {
@@ -74,6 +75,14 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 }
 
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
+	song, err := s.songRepo.GetSongByID(id)
+	if err != nil {
+		return err
+	}
+	if song == nil {
+		return utils.ErrResourceNotFound
+	}
+
 	updates["updated_at"] = s.timeProvider.Now()
 	return s.songRepo.UpdateSong(id, updates)
 }

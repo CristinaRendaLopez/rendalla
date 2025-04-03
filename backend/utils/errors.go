@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/gin-gonic/gin"
+	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,6 +30,11 @@ func HandleDynamoError(err error) error {
 		return nil
 	}
 
+	if errors.Is(err, dynamo.ErrNotFound) {
+		logrus.WithError(err).Warn("Item not found in DynamoDB")
+		return ErrResourceNotFound
+	}
+
 	if awsErr, ok := err.(awserr.Error); ok {
 		switch awsErr.Code() {
 		case dynamodb.ErrCodeConditionalCheckFailedException:
@@ -42,15 +48,15 @@ func HandleDynamoError(err error) error {
 			return ErrResourceNotFound
 		case dynamodb.ErrCodeInternalServerError:
 			logrus.WithError(awsErr).Error("Internal error in DynamoDB")
-			return errors.New("internal server error, please try again later")
+			return ErrInternalServer
 		default:
 			logrus.WithError(awsErr).Error("Unhandled DynamoDB error")
-			return errors.New("unexpected database error")
+			return ErrInternalServer
 		}
 	}
 
 	logrus.WithError(err).Error("Generic error")
-	return errors.New("an unexpected error occurred")
+	return ErrInternalServer
 }
 
 func IsDynamoNotFoundError(err error) bool {
@@ -62,27 +68,9 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 		return
 	}
 
-	var statusCode int
-
-	switch {
-	case errors.Is(err, ErrBadRequest), errors.Is(err, ErrValidationFailed):
-		statusCode = http.StatusBadRequest
-	case errors.As(err, &gin.Error{}):
-		statusCode = http.StatusBadRequest
-	case errors.Is(err, ErrResourceNotFound):
-		statusCode = http.StatusNotFound
-	case errors.Is(err, ErrOperationNotAllowed):
-		statusCode = http.StatusForbidden
-	case errors.Is(err, ErrThroughputExceeded):
-		statusCode = http.StatusTooManyRequests
-	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrUnauthorized):
-		statusCode = http.StatusUnauthorized
-	default:
-		statusCode = http.StatusInternalServerError
-		err = ErrInternalServer
-	}
-
+	statusCode := MapErrorToStatus(err)
 	logrus.WithError(err).Error(message)
+
 	c.JSON(statusCode, gin.H{
 		"error": gin.H{
 			"message": message,
@@ -93,24 +81,15 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 }
 
 func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
-	statusCode := http.StatusInternalServerError
-	message := "An unexpected error occurred"
+	statusCode := MapErrorToStatus(err)
+	message := MapErrorToMessage(err)
 
-	switch {
-	case IsDynamoNotFoundError(err):
-		statusCode = http.StatusNotFound
-		message = "Resource not found"
-	case errors.Is(err, ErrOperationNotAllowed):
-		statusCode = http.StatusForbidden
-		message = "Operation not allowed"
-	case errors.Is(err, ErrThroughputExceeded):
-		statusCode = http.StatusTooManyRequests
-		message = "Too many requests, try again later"
-	default:
-		logrus.WithError(err).Error("Unhandled error in API Gateway")
-	}
+	logrus.WithError(err).WithField("status", statusCode).Error("API Gateway Error")
 
-	body, _ := json.Marshal(map[string]string{"error": message})
+	body, _ := json.Marshal(map[string]string{
+		"error": message,
+	})
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: statusCode,
 		Body:       string(body),
@@ -118,4 +97,46 @@ func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
 			"Content-Type": "application/json",
 		},
 	}, nil
+}
+
+func MapErrorToStatus(err error) int {
+	switch {
+	case errors.Is(err, ErrBadRequest), errors.Is(err, ErrValidationFailed):
+		return http.StatusBadRequest
+	case errors.Is(err, ErrResourceNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, ErrOperationNotAllowed):
+		return http.StatusForbidden
+	case errors.Is(err, ErrThroughputExceeded):
+		return http.StatusTooManyRequests
+	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrUnauthorized):
+		return http.StatusUnauthorized
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func MapErrorToMessage(err error) string {
+	switch {
+	case errors.Is(err, ErrBadRequest):
+		return "Bad request"
+	case errors.Is(err, ErrValidationFailed):
+		return "Validation failed"
+	case errors.Is(err, ErrResourceNotFound):
+		return "Resource not found"
+	case errors.Is(err, ErrOperationNotAllowed):
+		return "Operation not allowed"
+	case errors.Is(err, ErrThroughputExceeded):
+		return "Too many requests, try again later"
+	case errors.Is(err, ErrInvalidCredentials):
+		return "Invalid credentials"
+	case errors.Is(err, ErrUnauthorized):
+		return "Unauthorized access"
+	case errors.Is(err, ErrTokenGenerationFailed):
+		return "Failed to generate token"
+	case errors.Is(err, ErrInternalServer):
+		return "Internal server error"
+	default:
+		return "An unexpected error occurred"
+	}
 }

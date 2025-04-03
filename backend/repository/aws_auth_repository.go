@@ -2,9 +2,9 @@ package repository
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -35,14 +35,14 @@ func (a *AWSAuthRepository) GetAuthCredentials() (*AuthCredentials, error) {
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to retrieve secret from Secrets Manager")
-		return nil, errors.New("failed to retrieve authentication credentials")
+		return nil, utils.ErrInternalServer
 	}
 
 	var credentials AuthCredentials
 	err = json.Unmarshal([]byte(*result.SecretString), &credentials)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to parse secret JSON")
-		return nil, errors.New("invalid secret format")
+		return nil, utils.ErrInternalServer
 	}
 
 	return &credentials, nil

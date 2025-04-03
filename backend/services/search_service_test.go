@@ -1,12 +1,12 @@
 package services_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/guregu/dynamo"
 	"github.com/stretchr/testify/assert"
 )
@@ -66,13 +66,13 @@ func TestSearchDocumentsByTitle_Error(t *testing.T) {
 	service := services.NewSearchService(mockSearchRepo)
 
 	mockSearchRepo.On("SearchDocumentsByTitle", "error", 10, dynamo.PagingKey(nil)).
-		Return([]models.Document{}, dynamo.PagingKey(nil), errors.New("database error"))
+		Return([]models.Document{}, dynamo.PagingKey(nil), utils.ErrInternalServer)
 
 	result, _, err := service.SearchDocumentsByTitle("error", 10, dynamo.PagingKey(nil))
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
-	assert.Equal(t, "database error", err.Error())
+	assert.ErrorIs(t, err, utils.ErrInternalServer)
 	mockSearchRepo.AssertExpectations(t)
 }
 

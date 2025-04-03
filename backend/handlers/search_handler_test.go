@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"errors"
 	"net/http"
 	"testing"
 
@@ -51,7 +50,7 @@ func TestSearchSongsByTitleHandler_MissingTitle(t *testing.T) {
 func TestSearchSongsByTitleHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{}, nil, errors.New("search error"))
+	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
@@ -112,7 +111,7 @@ func TestFilterDocumentsByInstrumentHandler_Success(t *testing.T) {
 func TestSearchDocumentsByTitleHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("SearchDocumentsByTitle", "score", 10, mock.Anything).Return([]models.Document{}, nil, errors.New("service error"))
+	mockService.On("SearchDocumentsByTitle", "score", 10, mock.Anything).Return([]models.Document{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=score", nil)
 	c.Request.URL.RawQuery = "title=score"
@@ -127,7 +126,7 @@ func TestSearchDocumentsByTitleHandler_Service_Error(t *testing.T) {
 func TestFilterDocumentsByInstrumentHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("FilterDocumentsByInstrument", "guitar", 10, mock.Anything).Return([]models.Document{}, nil, errors.New("filter error"))
+	mockService.On("FilterDocumentsByInstrument", "guitar", 10, mock.Anything).Return([]models.Document{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/documents/filter?instrument=guitar", nil)
 	c.Request.URL.RawQuery = "instrument=guitar"

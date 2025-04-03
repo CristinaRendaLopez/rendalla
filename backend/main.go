@@ -4,12 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/app"
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
-	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
-	"github.com/CristinaRendaLopez/rendalla-backend/repository"
-	"github.com/CristinaRendaLopez/rendalla-backend/router"
-	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
@@ -24,32 +20,12 @@ func main() {
 	bootstrap.LoadConfig()
 	bootstrap.InitDB()
 
-	db := bootstrap.DB
-
-	// Initialize repositories
-	documentRepo := repository.NewDynamoDocumentRepository(db)
-	songRepo := repository.NewDynamoSongRepository(db, documentRepo)
-	searchRepo := repository.NewDynamoSearchRepository(bootstrap.DB)
-	authRepo := repository.NewAWSAuthRepository()
-
-	// Initialize services
-	idGen := &utils.UUIDGenerator{}
-	timeProvider := &utils.UTCTimeProvider{}
-	clock := &utils.RealClock{}
-	tokenGen := &utils.JWTTokenGenerator{Secret: []byte(os.Getenv("JWT_SECRET"))}
-
-	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
-	documentService := services.NewDocumentService(documentRepo, idGen, timeProvider)
-	searchService := services.NewSearchService(searchRepo)
-	authService := services.NewAuthService(authRepo, clock, tokenGen)
-
-	// Initialize handlers
-	songHandler := handlers.NewSongHandler(songService)
-	documentHandler := handlers.NewDocumentHandler(documentService)
-	searchHandler := handlers.NewSearchHandler(searchService)
-	authHandler := handlers.NewAuthHandler(authService)
-
-	router := router.SetupRouter(songHandler, documentHandler, searchHandler, authHandler)
+	app := app.InitApp(bootstrap.DB, app.AppConfig{
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		EnableCORS:     true,
+		EnableLogger:   true,
+		EnableRecovery: true,
+	})
 
 	// Get and validate port
 	port := bootstrap.AppPort
@@ -58,5 +34,5 @@ func main() {
 	}
 
 	logrus.Infof("Rendalla backend is running on port %s", port)
-	router.Run(fmt.Sprintf(":%s", port))
+	app.Run(fmt.Sprintf(":%s", port))
 }

@@ -1,8 +1,8 @@
 package models
 
 type Document struct {
-	ID         string   `json:"id"`
-	SongID     string   `json:"song_id"`
+	ID         string   `json:"id" dynamo:"id"`
+	SongID     string   `json:"song_id" dynamo:"song_id"`
 	Type       string   `json:"type"`
 	Instrument []string `json:"instrument"`
 	PDFURL     string   `json:"pdf_url"`

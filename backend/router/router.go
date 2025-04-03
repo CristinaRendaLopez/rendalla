@@ -7,22 +7,35 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type RouterOptions struct {
+	EnableCORS     bool
+	EnableLogger   bool
+	EnableRecovery bool
+}
+
 func SetupRouter(
 	songHandler *handlers.SongHandler,
 	documentHandler *handlers.DocumentHandler,
 	searchHandler *handlers.SearchHandler,
 	authHandler *handlers.AuthHandler,
+	opts RouterOptions,
 ) *gin.Engine {
 
 	// Set up Gin router
-	r := gin.Default()
+	r := gin.New()
 
-	// Enable CORS
-	r.Use(cors.Default())
+	// CORS
+	if opts.EnableCORS {
+		r.Use(cors.Default())
+	}
 
 	// Middleware for structured logging and error handling
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+	if opts.EnableLogger {
+		r.Use(gin.Logger())
+	}
+	if opts.EnableRecovery {
+		r.Use(gin.Recovery())
+	}
 
 	// Health check route
 	r.GET("/health", func(c *gin.Context) {
