@@ -50,11 +50,14 @@ func SetupRouter(
 	{
 		public.GET("/songs", songHandler.GetAllSongsHandler)
 		public.GET("/songs/:id", songHandler.GetSongByIDHandler)
+
 		public.GET("/songs/:id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
 		public.GET("/documents/:id", documentHandler.GetDocumentByIDHandler)
+
 		public.GET("/songs/search", searchHandler.SearchSongsByTitleHandler)
 		public.GET("/documents/search", searchHandler.SearchDocumentsByTitleHandler)
 		public.GET("/documents/filter", searchHandler.FilterDocumentsByInstrumentHandler)
+
 		public.POST("/auth/login", authHandler.LoginHandler)
 	}
 

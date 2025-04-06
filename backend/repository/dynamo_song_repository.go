@@ -26,6 +26,16 @@ func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoS
 	}
 }
 
+func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
+	var songs []models.Song
+	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to retrieve songs")
+		return nil, utils.HandleDynamoError(err)
+	}
+	return songs, nil
+}
+
 func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
 	song.ID = uuid.New().String()
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -133,14 +143,4 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 
 	logrus.WithField("song_id", songID).Info("Song and associated documents deleted successfully")
 	return nil
-}
-
-func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
-	var songs []models.Song
-	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to retrieve songs")
-		return nil, utils.HandleDynamoError(err)
-	}
-	return songs, nil
 }
