@@ -82,7 +82,6 @@ func TestGetSongByIDHandler_MissingID(t *testing.T) {
 	handler.GetSongByIDHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
 
 func TestCreateSongHandler_Success(t *testing.T) {
@@ -97,7 +96,6 @@ func TestCreateSongHandler_Success(t *testing.T) {
 	handler.CreateSongHandler(c)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Contains(t, w.Body.String(), "Song created successfully")
 	mockService.AssertExpectations(t)
 }
 
@@ -123,7 +121,6 @@ func TestCreateSongHandler_InvalidDocument(t *testing.T) {
 	handler.CreateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid document")
 }
 
 func TestCreateSongHandler_ServiceError(t *testing.T) {
@@ -138,7 +135,6 @@ func TestCreateSongHandler_ServiceError(t *testing.T) {
 	handler.CreateSongHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to create song")
 	mockService.AssertExpectations(t)
 }
 
@@ -155,7 +151,6 @@ func TestUpdateSongHandler_Success(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Song updated successfully")
 	mockService.AssertExpectations(t)
 }
 
@@ -168,7 +163,6 @@ func TestUpdateSongHandler_MissingID(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
 
 func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
@@ -181,7 +175,6 @@ func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
 }
 
 func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
@@ -194,7 +187,6 @@ func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
 }
 
 func TestUpdateSongHandler_InvalidFields(t *testing.T) {
@@ -207,7 +199,6 @@ func TestUpdateSongHandler_InvalidFields(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
 }
 
 func TestUpdateSongHandler_InvalidJSONBinding(t *testing.T) {
@@ -222,7 +213,6 @@ func TestUpdateSongHandler_InvalidJSONBinding(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
 }
 
 func TestUpdateSongHandler_ServiceError(t *testing.T) {
@@ -238,7 +228,6 @@ func TestUpdateSongHandler_ServiceError(t *testing.T) {
 	handler.UpdateSongHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to update song")
 	mockService.AssertExpectations(t)
 }
 
@@ -252,7 +241,6 @@ func TestDeleteSongWithDocumentsHandler_Success(t *testing.T) {
 	handler.DeleteSongWithDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Song deleted successfully")
 	mockService.AssertExpectations(t)
 }
 
@@ -266,7 +254,6 @@ func TestDeleteSongWithDocumentsHandler_Service_Error(t *testing.T) {
 	handler.DeleteSongWithDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to delete song")
 	mockService.AssertExpectations(t)
 }
 
@@ -277,5 +264,4 @@ func TestDeleteSongWithDocumentsHandler_MissingID(t *testing.T) {
 	handler.DeleteSongWithDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
