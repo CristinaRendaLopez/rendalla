@@ -6,6 +6,9 @@ import (
 
 	"github.com/CristinaRendaLopez/rendalla-backend/app"
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
@@ -27,12 +30,20 @@ func main() {
 		EnableRecovery: true,
 	})
 
-	// Get and validate port
-	port := bootstrap.AppPort
-	if port == "" {
-		port = "8080"
-	}
+	if os.Getenv("LAMBDA_TASK_ROOT") != "" {
+		logrus.Info("Running in AWS Lambda mode")
+		lambdaAdapter := ginadapter.New(app)
+		lambda.Start(func(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+			return lambdaAdapter.Proxy(req)
+		})
+	} else {
+		// Get and validate port
+		port := bootstrap.AppPort
+		if port == "" {
+			port = "8080"
+		}
 
-	logrus.Infof("Rendalla backend is running on port %s", port)
-	app.Run(fmt.Sprintf(":%s", port))
+		logrus.Infof("Rendalla backend is running on port %s", port)
+		app.Run(fmt.Sprintf(":%s", port))
+	}
 }
