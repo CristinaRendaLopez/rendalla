@@ -22,7 +22,7 @@ func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 	// Initialize repositories
 	documentRepo := repository.NewDynamoDocumentRepository(db)
 	songRepo := repository.NewDynamoSongRepository(db, documentRepo)
-	searchRepo := repository.NewDynamoSearchRepository(db)
+	searchRepo := repository.NewDynamoSearchRepository(db, documentRepo)
 	authRepo := repository.NewAWSAuthRepository()
 
 	// Initialize services

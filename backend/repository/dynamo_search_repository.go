@@ -9,11 +9,15 @@ import (
 )
 
 type DynamoSearchRepository struct {
-	db *dynamo.DB
+	db      *dynamo.DB
+	docRepo DocumentRepository
 }
 
-func NewDynamoSearchRepository(db *dynamo.DB) *DynamoSearchRepository {
-	return &DynamoSearchRepository{db: db}
+func NewDynamoSearchRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoSearchRepository {
+	return &DynamoSearchRepository{
+		db:      db,
+		docRepo: docRepo,
+	}
 }
 
 func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
@@ -40,27 +44,32 @@ func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nex
 	return songs, nextKey, nil
 }
 
-func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
+func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int, _ PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
+	var matchingSongs []models.Song
+
 	normalizedTitle := utils.Normalize(title)
-	query := d.db.Table(bootstrap.DocumentTableName).
+	songQuery := d.db.Table(bootstrap.SongTableName).
 		Scan().
 		Filter("contains(title_normalized, ?)", normalizedTitle).
 		Limit(int64(limit))
 
-	if nextToken != nil {
-		if nt, ok := nextToken.(dynamo.PagingKey); ok {
-			query = query.StartFrom(nt)
-		}
-	}
-
-	nextKey, err := query.AllWithLastEvaluatedKey(&documents)
+	err := songQuery.All(&matchingSongs)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"title": title, "error": err}).Error("Failed to search documents by title")
+		logrus.WithFields(logrus.Fields{"title": title, "error": err}).Error("Failed to search songs by title")
 		return nil, nil, err
 	}
 
-	return documents, nextKey, nil
+	for _, song := range matchingSongs {
+		songDocs, err := d.docRepo.GetDocumentsBySongID(song.ID)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{"song_id": song.ID, "error": err}).Warn("Failed to get documents for song")
+			continue
+		}
+		documents = append(documents, songDocs...)
+	}
+
+	return documents, nil, nil
 }
 
 func (d *DynamoSearchRepository) FilterDocumentsByInstrument(instrument string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
