@@ -22,9 +22,9 @@ func (m *MockSongRepository) GetAllSongs() ([]models.Song, error) {
 	return args.Get(0).([]models.Song), args.Error(1)
 }
 
-func (m *MockSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
+func (m *MockSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) error {
 	args := m.Called(song, documents)
-	return args.String(0), args.Error(1)
+	return args.Error(0)
 }
 
 func (m *MockSongRepository) UpdateSong(id string, updates map[string]interface{}) error {

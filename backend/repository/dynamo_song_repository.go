@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/google/uuid"
 	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
@@ -36,41 +35,51 @@ func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 	return songs, nil
 }
 
-func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
-	song.ID = uuid.New().String()
-	now := time.Now().UTC().Format(time.RFC3339)
-	song.CreatedAt, song.UpdatedAt = now, now
+func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) error {
+	var transactItems []*dynamodb.TransactWriteItem
 
 	songItem, err := dynamodbattribute.MarshalMap(song)
-
 	if err != nil {
 		logrus.WithError(err).Error("Failed to marshal song item")
-		return "", utils.ErrInternalServer
+		return utils.ErrInternalServer
 	}
 
-	input := &dynamodb.PutItemInput{
-		TableName: aws.String(bootstrap.SongTableName),
-		Item:      songItem,
-	}
+	transactItems = append(transactItems, &dynamodb.TransactWriteItem{
+		Put: &dynamodb.Put{
+			TableName: aws.String(bootstrap.SongTableName),
+			Item:      songItem,
+		},
+	})
 
-	_, err = d.db.Client().PutItem(input)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to create song in DynamoDB")
-		return "", utils.HandleDynamoError(err)
-	}
-
-	for i := range documents {
-		documents[i].SongID = song.ID
-		if _, err := d.docRepo.CreateDocument(documents[i]); err != nil {
+	for i, doc := range documents {
+		docItem, err := dynamodbattribute.MarshalMap(doc)
+		if err != nil {
 			logrus.WithError(err).
-				WithFields(logrus.Fields{"song_id": song.ID, "doc_index": i}).
-				Error("Failed to create associated document")
-			return "", utils.ErrOperationNotAllowed
+				WithField("doc_index", i).
+				Error("Failed to marshal document item")
+			return utils.ErrInternalServer
 		}
+
+		transactItems = append(transactItems, &dynamodb.TransactWriteItem{
+			Put: &dynamodb.Put{
+				TableName: aws.String(bootstrap.DocumentTableName),
+				Item:      docItem,
+			},
+		})
 	}
 
-	logrus.WithField("song_id", song.ID).Info("Song and documents created successfully")
-	return song.ID, nil
+	input := &dynamodb.TransactWriteItemsInput{
+		TransactItems: transactItems,
+	}
+
+	_, err = d.db.Client().TransactWriteItems(input)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to execute transactional write")
+		return utils.HandleDynamoError(err)
+	}
+
+	logrus.WithField("song_id", song.ID).Info("Song and documents created transactionally")
+	return nil
 }
 
 func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {

@@ -101,8 +101,7 @@ func TestCreateSongWithDocuments_Success(t *testing.T) {
 
 	idGen.On("NewID").Return("doc-1").Once()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, documents).Return("song-123", nil)
-	docRepo.On("CreateDocument", mock.Anything).Return("doc-1", nil)
+	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(nil)
 
 	songID, err := service.CreateSongWithDocuments(song, documents)
 
@@ -127,7 +126,7 @@ func TestCreateSongWithDocuments_Error(t *testing.T) {
 	idGen.On("NewID").Return("song-123")
 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", utils.ErrInternalServer)
+	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(utils.ErrInternalServer)
 
 	songID, err := service.CreateSongWithDocuments(song, nil)
 
@@ -159,8 +158,7 @@ func TestCreateSongWithDocuments_DocumentCreationError(t *testing.T) {
 
 	idGen.On("NewID").Return("doc-1").Once()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, documents).Return("song-123", nil)
-	docRepo.On("CreateDocument", mock.Anything).Return("", utils.ErrOperationNotAllowed)
+	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(utils.ErrOperationNotAllowed)
 
 	songID, err := service.CreateSongWithDocuments(song, documents)
 

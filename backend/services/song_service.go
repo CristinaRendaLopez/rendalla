@@ -54,24 +54,22 @@ func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 func (s *SongService) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
 	song.ID = s.idGen.NewID()
 	now := s.timeProvider.Now()
-	song.CreatedAt, song.UpdatedAt = now, now
+	song.CreatedAt = now
+	song.UpdatedAt = now
 
-	songID, err := s.songRepo.CreateSongWithDocuments(song, documents)
+	for i := range documents {
+		documents[i].ID = s.idGen.NewID()
+		documents[i].SongID = song.ID
+		documents[i].CreatedAt = now
+		documents[i].UpdatedAt = now
+	}
+
+	err := s.songRepo.CreateSongWithDocuments(song, documents)
 	if err != nil {
 		return "", err
 	}
 
-	for _, doc := range documents {
-		doc.SongID = songID
-		doc.ID = s.idGen.NewID()
-		doc.CreatedAt, doc.UpdatedAt = now, now
-
-		if _, err := s.docRepo.CreateDocument(doc); err != nil {
-			return "", err
-		}
-	}
-
-	return songID, nil
+	return song.ID, nil
 }
 
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
