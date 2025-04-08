@@ -1,7 +1,7 @@
 package models
 
 type Song struct {
-	ID         string   `json:"id" dynamo:"id"`
+	ID         string   `json:"id" dynamodbav:"id"`
 	Title      string   `json:"title" dynamodbav:"title"`
 	Author     string   `json:"author" dynamodbav:"author"`
 	Genres     []string `json:"genres" dynamodbav:"genres"`
