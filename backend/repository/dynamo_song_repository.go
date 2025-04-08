@@ -137,7 +137,10 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 			transactItems = append(transactItems, &dynamodb.TransactWriteItem{
 				Delete: &dynamodb.Delete{
 					TableName: aws.String(bootstrap.DocumentTableName),
-					Key:       map[string]*dynamodb.AttributeValue{"id": {S: aws.String(doc.ID)}},
+					Key: map[string]*dynamodb.AttributeValue{
+						"song_id": {S: aws.String(doc.SongID)},
+						"id":      {S: aws.String(doc.ID)},
+					},
 				},
 			})
 		}

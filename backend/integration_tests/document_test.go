@@ -49,7 +49,7 @@ func TestGetDocumentsBySongID_ShouldReturnEmptyList(t *testing.T) {
 }
 
 func TestGetDocumentByID_ShouldReturnSeededDocument(t *testing.T) {
-	w := MakeRequest("GET", "/documents/doc-br-piano", nil, "")
+	w := MakeRequest("GET", "/songs/queen-001/documents/doc-br-piano", nil, "")
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response DocumentResponse
@@ -59,7 +59,7 @@ func TestGetDocumentByID_ShouldReturnSeededDocument(t *testing.T) {
 }
 
 func TestGetDocumentByID_ShouldReturn404(t *testing.T) {
-	w := MakeRequest("GET", "/documents/non-existent-id", nil, "")
+	w := MakeRequest("GET", "/songs/queen-001/documents/non-existent-id", nil, "")
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
@@ -135,7 +135,7 @@ func TestUpdateDocument_ShouldSucceed(t *testing.T) {
 
 	payload := `{"type": "tablatura"}`
 
-	w := MakeRequest("PUT", "/documents/doc-br-piano", strings.NewReader(payload), token)
+	w := MakeRequest("PUT", "/songs/queen-001/documents/doc-br-piano", strings.NewReader(payload), token)
 	w.Header().Set("Content-Type", "application/json")
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -159,7 +159,7 @@ func TestUpdateDocument_ShouldReturn400ForInvalidJSON(t *testing.T) {
 
 	payload := `{"type":`
 
-	w := MakeRequest("PUT", "/documents/doc-br-voice", strings.NewReader(payload), token)
+	w := MakeRequest("PUT", "/songs/queen-001/documents/doc-br-voice", strings.NewReader(payload), token)
 	w.Header().Set("Content-Type", "application/json")
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -184,7 +184,7 @@ func TestDeleteDocument_ShouldSucceed(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, createBody.DocumentID)
 
-	deleteRes := MakeRequest("DELETE", "/documents/"+createBody.DocumentID, nil, token)
+	deleteRes := MakeRequest("DELETE", "/songs/queen-001/documents/"+createBody.DocumentID, nil, token)
 	assert.Equal(t, http.StatusOK, deleteRes.Code)
 }
 
@@ -197,6 +197,6 @@ func TestDeleteDocument_ShouldSucceed(t *testing.T) {
 // }
 
 func TestDeleteDocument_ShouldReturn401WithoutToken(t *testing.T) {
-	w := MakeRequest("DELETE", "/documents/doc-br-voice", nil, "")
+	w := MakeRequest("DELETE", "/songs/queen-001/documents/doc-br-voice", nil, "")
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

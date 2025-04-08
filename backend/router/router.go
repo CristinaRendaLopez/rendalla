@@ -52,7 +52,7 @@ func SetupRouter(
 		public.GET("/songs/:id", songHandler.GetSongByIDHandler)
 
 		public.GET("/songs/:id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
-		public.GET("/documents/:id", documentHandler.GetDocumentByIDHandler)
+		public.GET("/songs/:id/documents/:doc_id", documentHandler.GetDocumentByIDHandler)
 
 		public.GET("/songs/search", searchHandler.SearchSongsByTitleHandler)
 		public.GET("/documents/search", searchHandler.SearchDocumentsByTitleHandler)
@@ -70,8 +70,8 @@ func SetupRouter(
 		auth.DELETE("/songs/:id", songHandler.DeleteSongWithDocumentsHandler)
 
 		auth.POST("/songs/:id/documents", documentHandler.CreateDocumentHandler)
-		auth.PUT("/documents/:id", documentHandler.UpdateDocumentHandler)
-		auth.DELETE("/documents/:id", documentHandler.DeleteDocumentHandler)
+		auth.PUT("/songs/:id/documents/:doc_id", documentHandler.UpdateDocumentHandler)
+		auth.DELETE("/songs/:id/documents/:doc_id", documentHandler.DeleteDocumentHandler)
 
 		auth.GET("/auth/me", authHandler.MeHandler)
 	}

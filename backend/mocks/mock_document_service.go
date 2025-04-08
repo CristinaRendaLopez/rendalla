@@ -17,8 +17,8 @@ func (m *MockDocumentService) GetDocumentsBySongID(songID string) ([]models.Docu
 	return args.Get(0).([]models.Document), args.Error(1)
 }
 
-func (m *MockDocumentService) GetDocumentByID(id string) (*models.Document, error) {
-	args := m.Called(id)
+func (m *MockDocumentService) GetDocumentByID(songID string, docID string) (*models.Document, error) {
+	args := m.Called(songID, docID)
 	return args.Get(0).(*models.Document), args.Error(1)
 }
 
@@ -27,12 +27,12 @@ func (m *MockDocumentService) CreateDocument(document models.Document) (string, 
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockDocumentService) UpdateDocument(id string, updates map[string]interface{}) error {
-	args := m.Called(id, updates)
+func (m *MockDocumentService) UpdateDocument(songID string, docID string, updates map[string]interface{}) error {
+	args := m.Called(songID, docID, updates)
 	return args.Error(0)
 }
 
-func (m *MockDocumentService) DeleteDocument(id string) error {
-	args := m.Called(id)
+func (m *MockDocumentService) DeleteDocument(songID string, docID string) error {
+	args := m.Called(songID, docID)
 	return args.Error(0)
 }

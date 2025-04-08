@@ -16,7 +16,6 @@ func CreateTestTables(db *dynamo.DB) error {
 		logrus.Fatal("Failed to assert Dynamo client as *dynamodb.DynamoDB")
 	}
 
-	// Intentar borrar si existen
 	for _, table := range []string{bootstrap.SongTableName, bootstrap.DocumentTableName} {
 		_, err := svc.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(table)})
 		if err != nil {
@@ -24,42 +23,63 @@ func CreateTestTables(db *dynamo.DB) error {
 		}
 	}
 
-	tables := []struct {
-		Name       string
-		PrimaryKey string
-	}{
-		{bootstrap.SongTableName, "id"},
-		{bootstrap.DocumentTableName, "id"},
+	if err := createSongsTable(svc); err != nil {
+		return err
 	}
 
-	for _, t := range tables {
-		_, err := svc.CreateTable(&dynamodb.CreateTableInput{
-			TableName: aws.String(t.Name),
-			KeySchema: []*dynamodb.KeySchemaElement{
-				{AttributeName: aws.String(t.PrimaryKey), KeyType: aws.String("HASH")},
-			},
-			AttributeDefinitions: []*dynamodb.AttributeDefinition{
-				{AttributeName: aws.String(t.PrimaryKey), AttributeType: aws.String("S")},
-			},
-			ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-				ReadCapacityUnits: aws.Int64(5), WriteCapacityUnits: aws.Int64(5),
-			},
-		})
-
-		if err != nil && !strings.Contains(err.Error(), dynamodb.ErrCodeResourceInUseException) {
-			logrus.WithField("table", t.Name).WithError(err).Error("Failed to create table")
-			return err
-		}
-
-		if err := waitForTableToBeActive(svc, t.Name); err != nil {
-			logrus.WithError(err).Error("Timed out waiting for table to be active")
-			return err
-		}
-
-		logrus.WithField("table", t.Name).Info("Table is ready")
+	if err := createDocumentsTable(svc); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func createSongsTable(svc *dynamodb.DynamoDB) error {
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(bootstrap.SongTableName),
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{AttributeName: aws.String("id"), KeyType: aws.String("HASH")},
+		},
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{AttributeName: aws.String("id"), AttributeType: aws.String("S")},
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits: aws.Int64(5), WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := svc.CreateTable(input)
+	if err != nil && !strings.Contains(err.Error(), dynamodb.ErrCodeResourceInUseException) {
+		logrus.WithError(err).Error("Failed to create SongsTable")
+		return err
+	}
+
+	return waitForTableToBeActive(svc, bootstrap.SongTableName)
+}
+
+func createDocumentsTable(svc *dynamodb.DynamoDB) error {
+	input := &dynamodb.CreateTableInput{
+		TableName: aws.String(bootstrap.DocumentTableName),
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{AttributeName: aws.String("song_id"), KeyType: aws.String("HASH")},
+			{AttributeName: aws.String("id"), KeyType: aws.String("RANGE")},
+		},
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{AttributeName: aws.String("song_id"), AttributeType: aws.String("S")},
+			{AttributeName: aws.String("id"), AttributeType: aws.String("S")},
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits: aws.Int64(5), WriteCapacityUnits: aws.Int64(5),
+		},
+	}
+
+	_, err := svc.CreateTable(input)
+	if err != nil && !strings.Contains(err.Error(), dynamodb.ErrCodeResourceInUseException) {
+		logrus.WithError(err).Error("Failed to create DocumentsTable")
+		return err
+	}
+
+	return waitForTableToBeActive(svc, bootstrap.DocumentTableName)
 }
 
 func waitForTableToBeActive(svc *dynamodb.DynamoDB, tableName string) error {

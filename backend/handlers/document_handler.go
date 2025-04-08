@@ -36,18 +36,26 @@ func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 }
 
 func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
-	docID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
 		return
 	}
 
-	document, err := h.documentService.GetDocumentByID(docID)
+	docID, ok := utils.RequireParam(c, "doc_id")
+	if !ok {
+		return
+	}
+
+	document, err := h.documentService.GetDocumentByID(songID, docID)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Document not found")
 		return
 	}
 
-	logrus.WithField("document_id", docID).Info("Document retrieved successfully")
+	logrus.WithFields(logrus.Fields{
+		"song_id":     songID,
+		"document_id": docID,
+	}).Info("Document retrieved successfully")
 	c.JSON(http.StatusOK, gin.H{"data": document})
 }
 
@@ -88,7 +96,11 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 }
 
 func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
-	docID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
+	docID, ok := utils.RequireParam(c, "doc_id")
 	if !ok {
 		return
 	}
@@ -105,13 +117,14 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	err := h.documentService.UpdateDocument(docID, docUpdate)
+	err := h.documentService.UpdateDocument(songID, docID, docUpdate)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Failed to update document")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
+		"song_id":     songID,
 		"document_id": docID,
 		"updates":     docUpdate,
 	}).Info("Document updated successfully")
@@ -120,12 +133,17 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 }
 
 func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
-	docID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
 		return
 	}
 
-	err := h.documentService.DeleteDocument(docID)
+	docID, ok := utils.RequireParam(c, "doc_id")
+	if !ok {
+		return
+	}
+
+	err := h.documentService.DeleteDocument(songID, docID)
 	if err != nil {
 		message := "Failed to delete document"
 		if errors.Is(err, utils.ErrResourceNotFound) {
@@ -135,6 +153,9 @@ func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	logrus.WithField("document_id", docID).Info("Document deleted successfully")
+	logrus.WithFields(logrus.Fields{
+		"song_id":     songID,
+		"document_id": docID,
+	}).Info("Document deleted successfully")
 	c.JSON(http.StatusOK, gin.H{"message": "Document deleted successfully"})
 }

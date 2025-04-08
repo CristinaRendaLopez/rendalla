@@ -7,10 +7,10 @@ import (
 
 type DocumentServiceInterface interface {
 	GetDocumentsBySongID(songID string) ([]models.Document, error)
-	GetDocumentByID(id string) (*models.Document, error)
+	GetDocumentByID(songID string, docID string) (*models.Document, error)
 	CreateDocument(document models.Document) (string, error)
-	UpdateDocument(id string, updates map[string]interface{}) error
-	DeleteDocument(id string) error
+	UpdateDocument(songID string, docID string, updates map[string]interface{}) error
+	DeleteDocument(songID string, docID string) error
 }
 
 type DocumentService struct {
@@ -31,8 +31,8 @@ func (s *DocumentService) GetDocumentsBySongID(songID string) ([]models.Document
 	return s.repo.GetDocumentsBySongID(songID)
 }
 
-func (s *DocumentService) GetDocumentByID(id string) (*models.Document, error) {
-	return s.repo.GetDocumentByID(id)
+func (s *DocumentService) GetDocumentByID(songID string, docID string) (*models.Document, error) {
+	return s.repo.GetDocumentByID(songID, docID)
 }
 
 func (s *DocumentService) CreateDocument(document models.Document) (string, error) {
@@ -44,11 +44,11 @@ func (s *DocumentService) CreateDocument(document models.Document) (string, erro
 	return s.repo.CreateDocument(document)
 }
 
-func (s *DocumentService) UpdateDocument(id string, updates map[string]interface{}) error {
+func (s *DocumentService) UpdateDocument(songID, docID string, updates map[string]interface{}) error {
 	updates["updated_at"] = s.timeProvider.Now()
-	return s.repo.UpdateDocument(id, updates)
+	return s.repo.UpdateDocument(songID, docID, updates)
 }
 
-func (s *DocumentService) DeleteDocument(id string) error {
-	return s.repo.DeleteDocument(id)
+func (s *DocumentService) DeleteDocument(songID string, docID string) error {
+	return s.repo.DeleteDocument(songID, docID)
 }

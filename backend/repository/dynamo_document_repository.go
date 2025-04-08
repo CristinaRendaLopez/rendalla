@@ -22,14 +22,25 @@ func NewDynamoDocumentRepository(db *dynamo.DB) *DynamoDocumentRepository {
 	return &DynamoDocumentRepository{db: db}
 }
 
-func (d *DynamoDocumentRepository) GetDocumentByID(id string) (*models.Document, error) {
+func (d *DynamoDocumentRepository) GetDocumentByID(songID string, docID string) (*models.Document, error) {
 	var document models.Document
-	err := d.db.Table(bootstrap.DocumentTableName).Get("id", id).One(&document)
+
+	err := d.db.Table(bootstrap.DocumentTableName).
+		Get("song_id", songID).
+		Range("id", dynamo.Equal, docID).
+		One(&document)
+
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to retrieve document")
+		logrus.WithFields(logrus.Fields{
+			"song_id":     songID,
+			"document_id": docID,
+			"error":       err,
+		}).Error("Failed to retrieve document")
+
 		return nil, utils.HandleDynamoError(err)
 	}
-	logrus.WithField("document_id", id).Info("Document retrieved successfully")
+
+	logrus.WithField("document_id", docID).Info("Document retrieved successfully")
 	return &document, nil
 }
 
@@ -59,9 +70,9 @@ func (d *DynamoDocumentRepository) CreateDocument(doc models.Document) (string, 
 	return doc.ID, nil
 }
 
-func (d *DynamoDocumentRepository) UpdateDocument(id string, updates map[string]interface{}) error {
+func (d *DynamoDocumentRepository) UpdateDocument(songID, docID string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now().UTC().Format(time.RFC3339)
-	update := d.db.Table(bootstrap.DocumentTableName).Update("id", id)
+	update := d.db.Table(bootstrap.DocumentTableName).Update("song_id", songID).Range("id", docID)
 
 	for key, value := range updates {
 		update = update.Set(key, value)
@@ -69,33 +80,44 @@ func (d *DynamoDocumentRepository) UpdateDocument(id string, updates map[string]
 
 	err := update.Run()
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to update document")
+		logrus.WithFields(logrus.Fields{"song_id": songID, "document_id": docID, "error": err}).Error("Failed to update document")
 		return utils.HandleDynamoError(err)
 	}
 
-	logrus.WithField("document_id", id).Info("Document updated successfully")
+	logrus.WithFields(logrus.Fields{"song_id": songID, "document_id": docID}).Info("Document updated successfully")
 	return nil
 }
 
-func (d *DynamoDocumentRepository) DeleteDocument(id string) error {
-	err := d.db.Table(bootstrap.DocumentTableName).Delete("id", id).Run()
+func (d *DynamoDocumentRepository) DeleteDocument(songID string, docID string) error {
+	err := d.db.Table(bootstrap.DocumentTableName).
+		Delete("song_id", songID).
+		Range("id", docID).
+		Run()
+
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"document_id": id, "error": err}).Error("Failed to delete document")
+		logrus.WithFields(logrus.Fields{"document_id": docID, "song_id": songID, "error": err}).Error("Failed to delete document")
 		return utils.HandleDynamoError(err)
 	}
 
-	logrus.WithField("document_id", id).Info("Document deleted successfully")
+	logrus.WithFields(logrus.Fields{"document_id": docID, "song_id": songID}).Info("Document deleted successfully")
 	return nil
 }
 
 func (d *DynamoDocumentRepository) GetDocumentsBySongID(songID string) ([]models.Document, error) {
 	var documents []models.Document
-	err := d.db.Table(bootstrap.DocumentTableName).Scan().Filter("song_id = ?", songID).All(&documents)
+
+	err := d.db.Table(bootstrap.DocumentTableName).
+		Get("song_id", songID).
+		All(&documents)
 
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"song_id": songID, "error": err}).Error("Failed to retrieve documents")
+		logrus.WithFields(logrus.Fields{
+			"song_id": songID,
+			"error":   err,
+		}).Error("Failed to retrieve documents")
 		return nil, utils.HandleDynamoError(err)
 	}
 
+	logrus.WithField("song_id", songID).Info("Documents retrieved successfully")
 	return documents, nil
 }

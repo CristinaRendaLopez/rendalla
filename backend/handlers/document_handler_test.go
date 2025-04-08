@@ -66,11 +66,12 @@ func TestGetAllDocumentsBySongIDHandler_MissingID(t *testing.T) {
 func TestGetDocumentByIDHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	document := &models.Document{ID: "doc1", SongID: "1", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"}
-	mockService.On("GetDocumentByID", "doc1").Return(document, nil)
+	document := &models.Document{ID: "doc1", SongID: "queen-001", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"}
+	mockService.On("GetDocumentByID", "queen-001", "doc1").Return(document, nil)
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.GetDocumentByIDHandler(c)
 
@@ -82,7 +83,7 @@ func TestGetDocumentByIDHandler_Success(t *testing.T) {
 func TestGetDocumentByIDHandler_MissingID(t *testing.T) {
 	handler, _ := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/", nil)
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/", nil)
 	handler.GetDocumentByIDHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -92,10 +93,11 @@ func TestGetDocumentByIDHandler_MissingID(t *testing.T) {
 func TestGetDocumentByIDHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("GetDocumentByID", "doc1").Return((*models.Document)(nil), utils.ErrResourceNotFound)
+	mockService.On("GetDocumentByID", "queen-001", "doc1").Return((*models.Document)(nil), utils.ErrResourceNotFound)
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.GetDocumentByIDHandler(c)
 
@@ -188,11 +190,12 @@ func TestUpdateDocumentHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
 	updates := map[string]interface{}{"type": "tablature"}
-	mockService.On("UpdateDocument", "doc123", updates).Return(nil)
+	mockService.On("UpdateDocument", "queen-001", "doc123", updates).Return(nil)
 
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": "tablature"}`))
+	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "tablature"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
 
 	handler.UpdateDocumentHandler(c)
 
@@ -204,7 +207,7 @@ func TestUpdateDocumentHandler_MissingID(t *testing.T) {
 	handler, _ := setupDocumentHandlerTest()
 
 	update := `{"type":"score"}`
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/", strings.NewReader(update))
+	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/", strings.NewReader(update))
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	handler.UpdateDocumentHandler(c)
@@ -217,9 +220,10 @@ func TestUpdateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 
 	badJSON := `{"type":`
 
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/1", strings.NewReader(badJSON))
+	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/1", strings.NewReader(badJSON))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "1"})
 
 	handler.UpdateDocumentHandler(c)
 
@@ -229,9 +233,10 @@ func TestUpdateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 func TestUpdateDocumentHandler_InvalidType(t *testing.T) {
 	handler, _ := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": ""}`))
+	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": ""}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
 
 	handler.UpdateDocumentHandler(c)
 
@@ -242,11 +247,12 @@ func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
 	updates := map[string]interface{}{"type": "score"}
-	mockService.On("UpdateDocument", "doc123", updates).Return(utils.ErrInternalServer)
+	mockService.On("UpdateDocument", "queen-001", "doc123", updates).Return(utils.ErrInternalServer)
 
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": "score"}`))
+	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "score"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
 
 	handler.UpdateDocumentHandler(c)
 
@@ -257,10 +263,11 @@ func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
 func TestDeleteDocumentHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("DeleteDocument", "doc1").Return(nil)
+	mockService.On("DeleteDocument", "queen-001", "doc1").Return(nil)
 
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
+	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/queen-001/documents/doc1", nil)
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.DeleteDocumentHandler(c)
 
@@ -271,7 +278,7 @@ func TestDeleteDocumentHandler_Success(t *testing.T) {
 func TestDeleteDocumentHandler_MissingID(t *testing.T) {
 	handler, _ := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/", nil)
+	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/queen-001/documents/", nil)
 	handler.DeleteDocumentHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -280,10 +287,11 @@ func TestDeleteDocumentHandler_MissingID(t *testing.T) {
 func TestDeleteDocumentHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("DeleteDocument", "doc1").Return(utils.ErrInternalServer)
+	mockService.On("DeleteDocument", "queen-001", "doc1").Return(utils.ErrInternalServer)
 
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
+	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/queen-001/documents/doc1", nil)
+	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.DeleteDocumentHandler(c)
 
