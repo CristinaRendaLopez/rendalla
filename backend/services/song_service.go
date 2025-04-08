@@ -56,6 +56,7 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 	now := s.timeProvider.Now()
 	song.CreatedAt = now
 	song.UpdatedAt = now
+	song.TitleNormalized = utils.Normalize(song.Title)
 
 	for i := range documents {
 		documents[i].ID = s.idGen.NewID()
@@ -74,14 +75,21 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
 	song, err := s.songRepo.GetSongByID(id)
+
 	if err != nil {
 		return err
 	}
+
 	if song == nil {
 		return utils.ErrResourceNotFound
 	}
 
 	updates["updated_at"] = s.timeProvider.Now()
+
+	if title, ok := updates["title"].(string); ok {
+		updates["title_normalized"] = utils.Normalize(title)
+	}
+
 	return s.songRepo.UpdateSong(id, updates)
 }
 
