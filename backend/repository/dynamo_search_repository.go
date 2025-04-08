@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/guregu/dynamo"
 	"github.com/sirupsen/logrus"
 )
@@ -17,9 +18,11 @@ func NewDynamoSearchRepository(db *dynamo.DB) *DynamoSearchRepository {
 
 func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
 	var songs []models.Song
+	normalizedTitle := utils.Normalize(title)
+
 	query := d.db.Table(bootstrap.SongTableName).
 		Scan().
-		Filter("contains(title_normalized, ?)", title).
+		Filter("contains(title_normalized, ?)", normalizedTitle).
 		Limit(int64(limit))
 
 	if nextToken != nil {
@@ -39,9 +42,10 @@ func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nex
 
 func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
+	normalizedTitle := utils.Normalize(title)
 	query := d.db.Table(bootstrap.DocumentTableName).
 		Scan().
-		Filter("contains(title_normalized, ?)", title).
+		Filter("contains(title_normalized, ?)", normalizedTitle).
 		Limit(int64(limit))
 
 	if nextToken != nil {
