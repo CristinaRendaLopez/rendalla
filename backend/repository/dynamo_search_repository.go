@@ -19,7 +19,7 @@ func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nex
 	var songs []models.Song
 	query := d.db.Table(bootstrap.SongTableName).
 		Scan().
-		Filter("contains(title, ?)", title).
+		Filter("contains(title_normalized, ?)", title).
 		Limit(int64(limit))
 
 	if nextToken != nil {
@@ -41,7 +41,7 @@ func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int,
 	var documents []models.Document
 	query := d.db.Table(bootstrap.DocumentTableName).
 		Scan().
-		Filter("contains(title, ?)", title).
+		Filter("contains(title_normalized, ?)", title).
 		Limit(int64(limit))
 
 	if nextToken != nil {
