@@ -55,7 +55,7 @@ func TestListSongsHandler_WithoutTitle_WithSorting(t *testing.T) {
 func TestListSongsHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return(nil, nil, utils.ErrInternalServer)
+	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
