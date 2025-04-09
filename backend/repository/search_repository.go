@@ -5,7 +5,7 @@ import (
 )
 
 type SearchRepository interface {
-	ListSongs(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error)
+	ListSongs(ttitle, sortField, sortOrder string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error)
 	SearchDocumentsByTitle(title string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error)
 	FilterDocumentsByInstrument(instrument string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error)
 }

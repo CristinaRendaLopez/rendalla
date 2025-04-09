@@ -18,24 +18,24 @@ func NewSearchHandler(searchService services.SearchServiceInterface) *SearchHand
 }
 
 func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
-	title, ok := utils.RequireQuery(c, "title")
-	if !ok {
-		return
-	}
-
+	title := c.Query("title")
+	sortField := c.DefaultQuery("sort", "created_at")
+	sortOrder := c.DefaultQuery("order", "desc")
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
-	songs, nextKey, err := h.searchService.ListSongs(title, limit, nextToken)
+	songs, nextKey, err := h.searchService.ListSongs(title, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error searching for songs")
+		utils.HandleAPIError(c, err, "Error listing songs")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"title":      title,
+		"sort":       sortField,
+		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Searched songs by title")
+	}).Info("Listed songs with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       songs,
