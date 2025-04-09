@@ -25,16 +25,6 @@ func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoS
 	}
 }
 
-func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
-	var songs []models.Song
-	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to retrieve songs")
-		return nil, utils.HandleDynamoError(err)
-	}
-	return songs, nil
-}
-
 func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) error {
 	var transactItems []*dynamodb.TransactWriteItem
 
@@ -80,6 +70,16 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 
 	logrus.WithField("song_id", song.ID).Info("Song and documents created transactionally")
 	return nil
+}
+
+func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
+	var songs []models.Song
+	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to retrieve songs")
+		return nil, utils.HandleDynamoError(err)
+	}
+	return songs, nil
 }
 
 func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {

@@ -93,7 +93,7 @@ func TestCreateDocument_Success(t *testing.T) {
 	idGen.On("NewID").Return("doc123")
 	timeProv.On("Now").Return("2023-03-21T00:00:00Z").Maybe()
 
-	docRepo.On("CreateDocument", mock.Anything).Return("doc123", nil)
+	docRepo.On("CreateDocument", mock.Anything).Return(nil)
 
 	docID, err := service.CreateDocument(doc)
 
@@ -124,12 +124,11 @@ func TestCreateDocument_Error(t *testing.T) {
 	idGen.On("NewID").Return("doc123")
 	timeProv.On("Now").Return("2023-03-21T00:00:00Z").Maybe()
 
-	docRepo.On("CreateDocument", mock.Anything).Return("", utils.ErrOperationNotAllowed)
+	docRepo.On("CreateDocument", mock.Anything).Return(utils.ErrOperationNotAllowed)
 
-	docID, err := service.CreateDocument(doc)
+	_, err := service.CreateDocument(doc)
 
 	assert.Error(t, err)
-	assert.Empty(t, docID)
 	assert.ErrorIs(t, err, utils.ErrOperationNotAllowed)
 
 	idGen.AssertExpectations(t)

@@ -50,7 +50,7 @@ func (s *DocumentService) CreateDocument(document models.Document) (string, erro
 	document.CreatedAt = now
 	document.UpdatedAt = now
 
-	return s.repo.CreateDocument(document)
+	return document.ID, s.repo.CreateDocument(document)
 }
 
 func (s *DocumentService) UpdateDocument(songID, docID string, updates map[string]interface{}) error {

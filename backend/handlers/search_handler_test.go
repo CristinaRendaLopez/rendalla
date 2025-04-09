@@ -31,7 +31,7 @@ func TestListSongsHandler_FilterByTitle_DefaultSort(t *testing.T) {
 	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Love of My Life")
+	assert.Contains(t, w.Body.String(), "\"id\":\"1\"")
 	mockService.AssertExpectations(t)
 }
 
@@ -185,7 +185,7 @@ func TestListDocumentsHandler_FilterByInstrument(t *testing.T) {
 	handler.ListDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "bohemian rhapsody")
+	assert.Contains(t, w.Body.String(), "\"id\":\"2\"")
 	mockService.AssertExpectations(t)
 }
 
@@ -220,8 +220,9 @@ func TestListDocumentsHandler_CombinedFiltersWithSorting(t *testing.T) {
 	handler.ListDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "love of my life")
-	assert.Contains(t, w.Body.String(), "somebody to love")
+	assert.Contains(t, w.Body.String(), "\"id\":\"3\"")
+	assert.Contains(t, w.Body.String(), "\"id\":\"4\"")
+
 	mockService.AssertExpectations(t)
 }
 
@@ -239,8 +240,8 @@ func TestListDocumentsHandler_SortByTitleAsc(t *testing.T) {
 	handler.ListDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "a kind of magic")
-	assert.Contains(t, w.Body.String(), "bohemian rhapsody")
+	assert.Contains(t, w.Body.String(), "\"id\":\"7\"")
+	assert.Contains(t, w.Body.String(), "\"id\":\"8\"")
 	mockService.AssertExpectations(t)
 }
 
@@ -258,8 +259,9 @@ func TestListDocumentsHandler_SortByCreatedAtDesc(t *testing.T) {
 	handler.ListDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "under pressure")
-	assert.Contains(t, w.Body.String(), "innuendo")
+	assert.Contains(t, w.Body.String(), "\"id\":\"5\"")
+	assert.Contains(t, w.Body.String(), "\"id\":\"6\"")
+
 	mockService.AssertExpectations(t)
 }
 
