@@ -17,7 +17,7 @@ func NewSearchHandler(searchService services.SearchServiceInterface) *SearchHand
 	return &SearchHandler{searchService: searchService}
 }
 
-func (h *SearchHandler) SearchSongsByTitleHandler(c *gin.Context) {
+func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 	title, ok := utils.RequireQuery(c, "title")
 	if !ok {
 		return
@@ -25,7 +25,7 @@ func (h *SearchHandler) SearchSongsByTitleHandler(c *gin.Context) {
 
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
-	songs, nextKey, err := h.searchService.SearchSongsByTitle(title, limit, nextToken)
+	songs, nextKey, err := h.searchService.ListSongs(title, limit, nextToken)
 	if err != nil {
 		utils.HandleAPIError(c, err, "Error searching for songs")
 		return

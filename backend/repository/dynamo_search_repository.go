@@ -20,7 +20,7 @@ func NewDynamoSearchRepository(db *dynamo.DB, docRepo DocumentRepository) *Dynam
 	}
 }
 
-func (d *DynamoSearchRepository) SearchSongsByTitle(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
+func (d *DynamoSearchRepository) ListSongs(title string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
 	var songs []models.Song
 	normalizedTitle := utils.Normalize(title)
 

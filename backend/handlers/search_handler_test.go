@@ -18,44 +18,44 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 	return handler, mockService
 }
 
-func TestSearchSongsByTitleHandler_Success(t *testing.T) {
+func TestListSongsHandler_Success(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{
+	mockService.On("ListSongs", "love", 10, mock.Anything).Return([]models.Song{
 		{ID: "1", Title: "Love Me Do"},
 	}, nil, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
 
-	handler.SearchSongsByTitleHandler(c)
+	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Love Me Do")
 	mockService.AssertExpectations(t)
 }
 
-func TestSearchSongsByTitleHandler_MissingTitle(t *testing.T) {
+func TestListSongsHandler_MissingTitle(t *testing.T) {
 	handler, _ := setupSearchHandlerTest()
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search", nil)
 	c.Request.URL.RawQuery = "title="
 
-	handler.SearchSongsByTitleHandler(c)
+	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "Missing title parameter")
 }
 
-func TestSearchSongsByTitleHandler_Service_Error(t *testing.T) {
+func TestListSongsHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
+	mockService.On("ListSongs", "love", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
 
-	handler.SearchSongsByTitleHandler(c)
+	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "Error searching for songs")

@@ -13,7 +13,7 @@ type MockSearchService struct {
 
 var _ services.SearchServiceInterface = (*MockSearchService)(nil)
 
-func (m *MockSearchService) SearchSongsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error) {
+func (m *MockSearchService) ListSongs(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error) {
 	args := m.Called(title, limit, nextToken)
 	return args.Get(0).([]models.Song), args.Get(1), args.Error(2)
 }

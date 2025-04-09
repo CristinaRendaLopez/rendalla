@@ -54,7 +54,7 @@ func SetupRouter(
 		public.GET("/songs/:id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
 		public.GET("/songs/:id/documents/:doc_id", documentHandler.GetDocumentByIDHandler)
 
-		public.GET("/songs/search", searchHandler.SearchSongsByTitleHandler)
+		public.GET("/songs/search", searchHandler.ListSongsHandler)
 		public.GET("/documents/search", searchHandler.SearchDocumentsByTitleHandler)
 		public.GET("/documents/filter", searchHandler.FilterDocumentsByInstrumentHandler)
 

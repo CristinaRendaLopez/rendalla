@@ -6,7 +6,7 @@ import (
 )
 
 type SearchServiceInterface interface {
-	SearchSongsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error)
+	ListSongs(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error)
 	SearchDocumentsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error)
 	FilterDocumentsByInstrument(instrument string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error)
 }
@@ -21,8 +21,8 @@ func NewSearchService(repo repository.SearchRepository) *SearchService {
 	return &SearchService{repo: repo}
 }
 
-func (s *SearchService) SearchSongsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error) {
-	return s.repo.SearchSongsByTitle(title, limit, nextToken)
+func (s *SearchService) ListSongs(title string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error) {
+	return s.repo.ListSongs(title, limit, nextToken)
 }
 
 func (s *SearchService) SearchDocumentsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error) {

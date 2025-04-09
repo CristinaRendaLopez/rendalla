@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSearchSongsByTitle(t *testing.T) {
+func TestListSongs(t *testing.T) {
 	mockSearchRepo := new(mocks.MockSearchRepository)
 	service := services.NewSearchService(mockSearchRepo)
 
@@ -20,9 +20,9 @@ func TestSearchSongsByTitle(t *testing.T) {
 		{ID: "2", Title: "We Will Rock You", Author: "Queen", Genres: []string{"Rock"}},
 	}
 
-	mockSearchRepo.On("SearchSongsByTitle", "rock", 10, dynamo.PagingKey(nil)).Return(songs, dynamo.PagingKey(nil), nil)
+	mockSearchRepo.On("ListSongs", "rock", 10, dynamo.PagingKey(nil)).Return(songs, dynamo.PagingKey(nil), nil)
 
-	result, _, err := service.SearchSongsByTitle("rock", 10, dynamo.PagingKey(nil))
+	result, _, err := service.ListSongs("rock", 10, dynamo.PagingKey(nil))
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -30,13 +30,13 @@ func TestSearchSongsByTitle(t *testing.T) {
 	mockSearchRepo.AssertExpectations(t)
 }
 
-func TestSearchSongsByTitle_NotFound(t *testing.T) {
+func TestListSongs_NotFound(t *testing.T) {
 	mockSearchRepo := new(mocks.MockSearchRepository)
 	service := services.NewSearchService(mockSearchRepo)
 
-	mockSearchRepo.On("SearchSongsByTitle", "unknown", 10, dynamo.PagingKey(nil)).Return([]models.Song{}, dynamo.PagingKey(nil), nil)
+	mockSearchRepo.On("ListSongs", "unknown", 10, dynamo.PagingKey(nil)).Return([]models.Song{}, dynamo.PagingKey(nil), nil)
 
-	result, _, err := service.SearchSongsByTitle("unknown", 10, dynamo.PagingKey(nil))
+	result, _, err := service.ListSongs("unknown", 10, dynamo.PagingKey(nil))
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
