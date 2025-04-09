@@ -121,6 +121,50 @@ func TestSearchService_ListSongs_NoResults(t *testing.T) {
 	mockSearchRepo.AssertExpectations(t)
 }
 
+func TestSearchService_ListSongs_InvalidSortField_ShouldFallbackToCreatedAt(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	expected := []models.Song{
+		{ID: "6", Title: "One Vision", Author: "Queen"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockSearchRepo.
+		On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	var next repository.PagingKey = nil
+	result, _, err := service.ListSongs("queen", "banana", "desc", 10, next)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "One Vision", result[0].Title)
+	mockSearchRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListSongs_InvalidOrder_ShouldFallbackToDesc(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	expected := []models.Song{
+		{ID: "7", Title: "Innuendo", Author: "Queen"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockSearchRepo.
+		On("ListSongs", "innuendo", "title", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	var next repository.PagingKey = nil
+	result, _, err := service.ListSongs("innuendo", "title", "sideways", 10, next)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "Innuendo", result[0].Title)
+	mockSearchRepo.AssertExpectations(t)
+}
+
 func TestSearchService_ListSongs_WithNextToken(t *testing.T) {
 	mockSearchRepo := new(mocks.MockSearchRepository)
 	service := services.NewSearchService(mockSearchRepo)

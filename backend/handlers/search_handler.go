@@ -19,8 +19,8 @@ func NewSearchHandler(searchService services.SearchServiceInterface) *SearchHand
 
 func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 	title := c.Query("title")
-	sortField := c.DefaultQuery("sort", "created_at")
-	sortOrder := c.DefaultQuery("order", "desc")
+	sortField := c.Query("sort")
+	sortOrder := c.Query("order")
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
 	songs, nextKey, err := h.searchService.ListSongs(title, sortField, sortOrder, limit, nextToken)

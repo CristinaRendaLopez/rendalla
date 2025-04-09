@@ -22,6 +22,12 @@ func NewSearchService(repo repository.SearchRepository) *SearchService {
 }
 
 func (s *SearchService) ListSongs(title, sortField, sortOrder string, limit int, nextToken repository.PagingKey) ([]models.Song, repository.PagingKey, error) {
+	if sortField != "title" && sortField != "created_at" {
+		sortField = "created_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
 	return s.repo.ListSongs(title, sortField, sortOrder, limit, nextToken)
 }
 

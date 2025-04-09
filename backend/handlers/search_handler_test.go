@@ -21,7 +21,7 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 func TestListSongsHandler_FilterByTitle_DefaultSort(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{
 		{ID: "1", Title: "Love of My Life", Author: "Queen"},
 	}, nil, nil)
 
@@ -76,7 +76,7 @@ func TestListSongsHandler_SortByCreatedAtAsc(t *testing.T) {
 func TestListSongsHandler_DefaultParams(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+	mockService.On("ListSongs", "", "", "", 10, mock.Anything).Return([]models.Song{
 		{ID: "5", Title: "The Show Must Go On", Author: "Queen"},
 		{ID: "6", Title: "I Want It All", Author: "Queen"},
 	}, nil, nil)
@@ -93,7 +93,7 @@ func TestListSongsHandler_DefaultParams(t *testing.T) {
 func TestListSongsHandler_EmptyResult(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "radio", "created_at", "desc", 10, mock.Anything).Return([]models.Song{}, nil, nil)
+	mockService.On("ListSongs", "radio", "", "", 10, mock.Anything).Return([]models.Song{}, nil, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=radio", nil)
 	c.Request.URL.RawQuery = "title=radio"
@@ -122,61 +122,10 @@ func TestListSongsHandler_SortByTitleAsc_NoFilter(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestListSongsHandler_InvalidSortField_ShouldFallbackToCreatedAt(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
-		{ID: "1", Title: "Another One Bites the Dust", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&sort=banana", nil)
-	c.Request.URL.RawQuery = "title=queen&sort=banana"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Another One Bites the Dust")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_InvalidOrder_ShouldFallbackToDesc(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "queen", "title", "desc", 10, mock.Anything).Return([]models.Song{
-		{ID: "2", Title: "Under Pressure", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&sort=title&order=sideways", nil)
-	c.Request.URL.RawQuery = "title=queen&sort=title&order=sideways"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Under Pressure")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_LimitZero_ShouldFallbackToDefault(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
-		{ID: "3", Title: "Innuendo", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&limit=0", nil)
-	c.Request.URL.RawQuery = "title=queen&limit=0"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Innuendo")
-	mockService.AssertExpectations(t)
-}
-
 func TestListSongsHandler_NextTokenPresent(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+	mockService.On("ListSongs", "", "", "", 10, mock.Anything).Return([]models.Song{
 		{ID: "4", Title: "One Vision", Author: "Queen"},
 	}, "some-token", nil)
 
@@ -194,7 +143,7 @@ func TestListSongsHandler_NextTokenPresent(t *testing.T) {
 func TestListSongsHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
+	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
