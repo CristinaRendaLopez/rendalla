@@ -43,51 +43,29 @@ func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 	})
 }
 
-func (h *SearchHandler) SearchDocumentsByTitleHandler(c *gin.Context) {
-	title, ok := utils.RequireQuery(c, "title")
-	if !ok {
-		return
-	}
-
+func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
+	title := c.Query("title")
+	instrument := c.Query("instrument")
+	docType := c.Query("type")
+	sortField := c.Query("sort")
+	sortOrder := c.Query("order")
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
-	documents, nextKey, err := h.searchService.SearchDocumentsByTitle(title, limit, nextToken)
+	documents, nextKey, err := h.searchService.ListDocuments(title, instrument, docType, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error searching for documents")
+		utils.HandleAPIError(c, err, "Error listing documents")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"title":      title,
-		"limit":      limit,
-		"next_token": nextToken,
-	}).Info("Searched documents by title")
-
-	c.JSON(http.StatusOK, gin.H{
-		"data":       documents,
-		"next_token": nextKey,
-	})
-}
-
-func (h *SearchHandler) FilterDocumentsByInstrumentHandler(c *gin.Context) {
-	instrument, ok := utils.RequireQuery(c, "instrument")
-	if !ok {
-		return
-	}
-
-	limit, nextToken := utils.ExtractPaginationParams(c)
-
-	documents, nextKey, err := h.searchService.FilterDocumentsByInstrument(instrument, limit, nextToken)
-	if err != nil {
-		utils.HandleAPIError(c, err, "Error filtering documents by instrument")
-		return
-	}
-
-	logrus.WithFields(logrus.Fields{
 		"instrument": instrument,
+		"type":       docType,
+		"sort":       sortField,
+		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Filtered documents by instrument")
+	}).Info("Listed documents with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       documents,

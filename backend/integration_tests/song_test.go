@@ -2,7 +2,6 @@ package integration_tests
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,7 +93,6 @@ func TestCreateSong_ShouldSucceedWithJWT(t *testing.T) {
 		Message string `json:"message"`
 		SongID  string `json:"song_id"`
 	}
-	fmt.Println("BODY:", w.Body.String())
 	err = json.NewDecoder(w.Body).Decode(&response)
 	assert.NoError(t, err)
 	assert.Equal(t, "Song created successfully", response.Message)

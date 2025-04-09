@@ -32,7 +32,7 @@ func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 	tokenGen := &utils.JWTTokenGenerator{Secret: []byte(cfg.JWTSecret)}
 
 	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
-	documentService := services.NewDocumentService(documentRepo, idGen, timeProvider)
+	documentService := services.NewDocumentService(documentRepo, songRepo, idGen, timeProvider)
 	searchService := services.NewSearchService(searchRepo)
 	authService := services.NewAuthService(authRepo, clock, tokenGen)
 

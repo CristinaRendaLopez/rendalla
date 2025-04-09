@@ -19,12 +19,7 @@ func (m *MockSearchService) ListSongs(title, sortField, sortOrder string, limit 
 	return args.Get(0).([]models.Song), args.Get(1), args.Error(2)
 }
 
-func (m *MockSearchService) SearchDocumentsByTitle(title string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error) {
-	args := m.Called(title, limit, nextToken)
-	return args.Get(0).([]models.Document), args.Get(1), args.Error(2)
-}
-
-func (m *MockSearchService) FilterDocumentsByInstrument(instrument string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error) {
-	args := m.Called(instrument, limit, nextToken)
+func (m *MockSearchService) ListDocuments(title, instrument, docType, sortField, sortOrder string, limit int, nextToken repository.PagingKey) ([]models.Document, repository.PagingKey, error) {
+	args := m.Called(title, instrument, docType, sortField, sortOrder, limit, nextToken)
 	return args.Get(0).([]models.Document), args.Get(1), args.Error(2)
 }

@@ -61,6 +61,7 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 	for i := range documents {
 		documents[i].ID = s.idGen.NewID()
 		documents[i].SongID = song.ID
+		documents[i].TitleNormalized = song.TitleNormalized
 		documents[i].CreatedAt = now
 		documents[i].UpdatedAt = now
 	}

@@ -74,41 +74,21 @@ func (d *DynamoSearchRepository) ListSongs(title, sortField, sortOrder string, l
 	return songs, nextKey, nil
 }
 
-func (d *DynamoSearchRepository) SearchDocumentsByTitle(title string, limit int, _ PagingKey) ([]models.Document, PagingKey, error) {
+func (d *DynamoSearchRepository) ListDocuments(title, instrument, docType, sortField, sortOrder string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
-	var matchingSongs []models.Song
 
-	normalizedTitle := utils.Normalize(title)
-	songQuery := d.db.Table(bootstrap.SongTableName).
-		Scan().
-		Filter("contains(title_normalized, ?)", normalizedTitle).
-		Limit(int64(limit))
+	query := d.db.Table(bootstrap.DocumentTableName).Scan().Limit(int64(limit))
 
-	err := songQuery.All(&matchingSongs)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"title": title, "error": err}).Error("Failed to search songs by title")
-		return nil, nil, err
+	if title != "" {
+		normalizedTitle := utils.Normalize(title)
+		query = query.Filter("contains(title_normalized, ?)", normalizedTitle)
 	}
-
-	for _, song := range matchingSongs {
-		songDocs, err := d.docRepo.GetDocumentsBySongID(song.ID)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{"song_id": song.ID, "error": err}).Warn("Failed to get documents for song")
-			continue
-		}
-		documents = append(documents, songDocs...)
+	if instrument != "" {
+		query = query.Filter("contains(instrument, ?)", instrument)
 	}
-
-	return documents, nil, nil
-}
-
-func (d *DynamoSearchRepository) FilterDocumentsByInstrument(instrument string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
-	var documents []models.Document
-	query := d.db.Table(bootstrap.DocumentTableName).
-		Scan().
-		Filter("contains(instrument, ?)", instrument).
-		Limit(int64(limit))
-
+	if docType != "" {
+		query = query.Filter("'type' = ?", docType)
+	}
 	if nextToken != nil {
 		if nt, ok := nextToken.(dynamo.PagingKey); ok {
 			query = query.StartFrom(nt)
@@ -117,9 +97,38 @@ func (d *DynamoSearchRepository) FilterDocumentsByInstrument(instrument string, 
 
 	nextKey, err := query.AllWithLastEvaluatedKey(&documents)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{"instrument": instrument, "error": err}).Error("Failed to filter documents by instrument")
+		logrus.WithFields(logrus.Fields{
+			"title":      title,
+			"instrument": instrument,
+			"type":       docType,
+			"error":      err,
+		}).Error("Failed to list documents")
 		return nil, nil, err
 	}
+
+	if sortField == "" {
+		sortField = "created_at"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	sort.SliceStable(documents, func(i, j int) bool {
+		switch sortField {
+		case "title":
+			if sortOrder == "asc" {
+				return documents[i].TitleNormalized < documents[j].TitleNormalized
+			}
+			return documents[i].TitleNormalized > documents[j].TitleNormalized
+		case "created_at":
+			if sortOrder == "asc" {
+				return documents[i].CreatedAt < documents[j].CreatedAt
+			}
+			return documents[i].CreatedAt > documents[j].CreatedAt
+		default:
+			return true
+		}
+	})
 
 	return documents, nextKey, nil
 }

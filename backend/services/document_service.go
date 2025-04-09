@@ -3,6 +3,7 @@ package services
 import (
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 )
 
 type DocumentServiceInterface interface {
@@ -15,13 +16,15 @@ type DocumentServiceInterface interface {
 
 type DocumentService struct {
 	repo         repository.DocumentRepository
+	songRepo     repository.SongRepository
 	idGen        IDGenerator
 	timeProvider TimeProvider
 }
 
-func NewDocumentService(repo repository.DocumentRepository, idGen IDGenerator, timeProvider TimeProvider) *DocumentService {
+func NewDocumentService(repo repository.DocumentRepository, songRepo repository.SongRepository, idGen IDGenerator, timeProvider TimeProvider) *DocumentService {
 	return &DocumentService{
 		repo:         repo,
+		songRepo:     songRepo,
 		idGen:        idGen,
 		timeProvider: timeProvider,
 	}
@@ -36,6 +39,12 @@ func (s *DocumentService) GetDocumentByID(songID string, docID string) (*models.
 }
 
 func (s *DocumentService) CreateDocument(document models.Document) (string, error) {
+	song, err := s.songRepo.GetSongByID(document.SongID)
+	if err != nil {
+		return "", err
+	}
+
+	document.TitleNormalized = utils.Normalize(song.Title)
 	document.ID = s.idGen.NewID()
 	now := s.timeProvider.Now()
 	document.CreatedAt = now
@@ -45,6 +54,13 @@ func (s *DocumentService) CreateDocument(document models.Document) (string, erro
 }
 
 func (s *DocumentService) UpdateDocument(songID, docID string, updates map[string]interface{}) error {
+	if _, ok := updates["title_normalized"]; !ok {
+		song, err := s.songRepo.GetSongByID(songID)
+		if err != nil {
+			return err
+		}
+		updates["title_normalized"] = utils.Normalize(song.Title)
+	}
 	updates["updated_at"] = s.timeProvider.Now()
 	return s.repo.UpdateDocument(songID, docID, updates)
 }

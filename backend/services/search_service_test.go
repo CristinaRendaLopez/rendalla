@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
@@ -196,90 +195,13 @@ func TestSearchService_ListSongs_RepositoryError(t *testing.T) {
 
 	mockSearchRepo.
 		On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).
-		Return([]models.Song{}, emptyKey, fmt.Errorf("repository failure"))
+		Return([]models.Song{}, emptyKey, utils.ErrInternalServer)
 
 	var next repository.PagingKey = nil
 	result, _, err := service.ListSongs("queen", "created_at", "desc", 10, next)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
-	assert.Contains(t, err.Error(), "repository failure")
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestSearchDocumentsByTitle(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	docs := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", Instrument: []string{"Guitar"}, PDFURL: "https://s3.amazonaws.com/queen/bohemian.pdf"},
-	}
-
-	emptyKey := repository.PagingKey(map[string]interface{}{})
-	mockSearchRepo.
-		On("SearchDocumentsByTitle", "bohemian", 10, mock.Anything).
-		Return(docs, emptyKey, nil)
-
-	var next repository.PagingKey = nil
-	result, _, err := service.SearchDocumentsByTitle("bohemian", 10, next)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "doc1", result[0].ID)
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestSearchDocumentsByTitle_Error(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	emptyKey := repository.PagingKey(map[string]interface{}{})
-	mockSearchRepo.
-		On("SearchDocumentsByTitle", "error", 10, mock.Anything).
-		Return([]models.Document{}, emptyKey, utils.ErrInternalServer)
-
-	var next repository.PagingKey = nil
-	result, _, err := service.SearchDocumentsByTitle("error", 10, next)
-
-	assert.Error(t, err)
-	assert.Empty(t, result)
 	assert.ErrorIs(t, err, utils.ErrInternalServer)
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrument(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	docs := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", Instrument: []string{"Guitar"}, PDFURL: "https://s3.amazonaws.com/queen/bohemian.pdf"},
-	}
-
-	emptyKey := repository.PagingKey(map[string]interface{}{})
-	mockSearchRepo.
-		On("FilterDocumentsByInstrument", "Guitar", 10, nil).
-		Return(docs, emptyKey, nil)
-
-	result, _, err := service.FilterDocumentsByInstrument("Guitar", 10, nil)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "doc1", result[0].ID)
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrument_NoResults(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	emptyKey := repository.PagingKey(map[string]interface{}{})
-	mockSearchRepo.
-		On("FilterDocumentsByInstrument", "Drums", 10, nil).
-		Return([]models.Document{}, emptyKey, nil)
-
-	result, _, err := service.FilterDocumentsByInstrument("Drums", 10, nil)
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
 	mockSearchRepo.AssertExpectations(t)
 }
