@@ -154,3 +154,142 @@ func TestListSongsHandler_ServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Error listing songs")
 	mockService.AssertExpectations(t)
 }
+
+func TestListDocumentsHandler_FilterByTitle_DefaultSort(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "queen", "", "", "", "", 10, mock.Anything).Return([]models.Document{
+		{ID: "1", SongID: "s1", TitleNormalized: "queen", Type: "sheet_music", Instrument: []string{"Guitar"}},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=queen", nil)
+	c.Request.URL.RawQuery = "title=queen"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "sheet_music")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_FilterByInstrument(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "", "Piano", "", "", "", 10, mock.Anything).Return([]models.Document{
+		{ID: "2", SongID: "s2", TitleNormalized: "bohemian rhapsody", Type: "sheet_music", Instrument: []string{"Piano"}},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?instrument=Piano", nil)
+	c.Request.URL.RawQuery = "instrument=Piano"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "bohemian rhapsody")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_FilterByType(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "", "", "tablature", "", "", 10, mock.Anything).Return([]models.Document{
+		{ID: "3", SongID: "s3", TitleNormalized: "we will rock you", Type: "tablature", Instrument: []string{"Guitar"}},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?type=tablature", nil)
+	c.Request.URL.RawQuery = "type=tablature"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "tablature")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_CombinedFiltersWithSorting(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "love", "Violin", "sheet_music", "title", "asc", 10, mock.Anything).Return([]models.Document{
+		{ID: "3", SongID: "s3", TitleNormalized: "love of my life", Type: "sheet_music", Instrument: []string{"Violin"}},
+		{ID: "4", SongID: "s4", TitleNormalized: "somebody to love", Type: "sheet_music", Instrument: []string{"Violin"}},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=love&instrument=Violin&type=sheet_music&sort=title&order=asc", nil)
+	c.Request.URL.RawQuery = "title=love&instrument=Violin&type=sheet_music&sort=title&order=asc"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "love of my life")
+	assert.Contains(t, w.Body.String(), "somebody to love")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_SortByTitleAsc(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "", "", "", "title", "asc", 10, mock.Anything).Return([]models.Document{
+		{ID: "7", SongID: "s7", TitleNormalized: "a kind of magic", Type: "sheet_music"},
+		{ID: "8", SongID: "s8", TitleNormalized: "bohemian rhapsody", Type: "sheet_music"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?sort=title&order=asc", nil)
+	c.Request.URL.RawQuery = "sort=title&order=asc"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "a kind of magic")
+	assert.Contains(t, w.Body.String(), "bohemian rhapsody")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_SortByCreatedAtDesc(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "", "", "", "created_at", "desc", 10, mock.Anything).Return([]models.Document{
+		{ID: "5", SongID: "s5", TitleNormalized: "under pressure", CreatedAt: "1985-01-01T00:00:00Z"},
+		{ID: "6", SongID: "s6", TitleNormalized: "innuendo", CreatedAt: "1991-01-01T00:00:00Z"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?sort=created_at&order=desc", nil)
+	c.Request.URL.RawQuery = "sort=created_at&order=desc"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "under pressure")
+	assert.Contains(t, w.Body.String(), "innuendo")
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_EmptyResult(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "nonexistent", "", "", "", "", 10, mock.Anything).Return([]models.Document{}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=nonexistent", nil)
+	c.Request.URL.RawQuery = "title=nonexistent"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"data":[]`)
+	mockService.AssertExpectations(t)
+}
+
+func TestListDocumentsHandler_ServiceError(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListDocuments", "queen", "", "", "", "", 10, mock.Anything).
+		Return([]models.Document{}, nil, utils.ErrInternalServer)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=queen", nil)
+	c.Request.URL.RawQuery = "title=queen"
+
+	handler.ListDocumentsHandler(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.ErrorIs(t, utils.ErrInternalServer, utils.ErrInternalServer)
+	mockService.AssertExpectations(t)
+}
