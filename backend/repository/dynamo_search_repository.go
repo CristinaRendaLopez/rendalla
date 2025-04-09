@@ -10,11 +10,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DynamoSearchRepository implements SearchRepository using DynamoDB to filter and list songs and documents.
+// Supports optional filters by title, instrument, and type, and applies sorting and pagination client-side.
 type DynamoSearchRepository struct {
 	db      *dynamo.DB
 	docRepo DocumentRepository
 }
 
+// NewDynamoSearchRepository returns a new instance of DynamoSearchRepository.
 func NewDynamoSearchRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoSearchRepository {
 	return &DynamoSearchRepository{
 		db:      db,
@@ -22,6 +25,19 @@ func NewDynamoSearchRepository(db *dynamo.DB, docRepo DocumentRepository) *Dynam
 	}
 }
 
+// ListSongs returns a paginated and optionally filtered list of songs from DynamoDB.
+// Supports filtering by title (normalized), pagination, and client-side sorting by title or created_at.
+// Parameters:
+//   - title: optional search term, normalized and matched via "contains"
+//   - sortField: "title" or "created_at" (defaults to "created_at")
+//   - sortOrder: "asc" or "desc" (defaults to "desc")
+//   - limit: maximum number of results
+//   - nextToken: pagination token
+//
+// Returns:
+//   - A slice of Song models
+//   - A pagination key for the next request (if applicable)
+//   - An error if the query fails
 func (d *DynamoSearchRepository) ListSongs(title, sortField, sortOrder string, limit int, nextToken PagingKey) ([]models.Song, PagingKey, error) {
 	var songs []models.Song
 
@@ -74,6 +90,21 @@ func (d *DynamoSearchRepository) ListSongs(title, sortField, sortOrder string, l
 	return songs, nextKey, nil
 }
 
+// ListDocuments returns a paginated and optionally filtered list of documents from DynamoDB.
+// Supports filters by normalized title, instrument, and document type, plus sorting and pagination.
+// Parameters:
+//   - title: optional search term, matched on title_normalized
+//   - instrument: optional filter by instrument
+//   - docType: optional filter by "type" field
+//   - sortField: "title" (based on title_normalized) or "created_at"
+//   - sortOrder: "asc" or "desc"
+//   - limit: maximum number of results
+//   - nextToken: pagination token
+//
+// Returns:
+//   - A slice of Document models
+//   - A pagination key for the next request (if applicable)
+//   - An error if the query fails
 func (d *DynamoSearchRepository) ListDocuments(title, instrument, docType, sortField, sortOrder string, limit int, nextToken PagingKey) ([]models.Document, PagingKey, error) {
 	var documents []models.Document
 

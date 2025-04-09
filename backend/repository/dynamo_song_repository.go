@@ -13,11 +13,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DynamoSongRepository implements SongRepository using DynamoDB as backend.
+// Songs are stored in the "SongTable", and documents are stored separately in the "DocumentTable".
+// Each song can be created or deleted transactionally along with its associated documents.
 type DynamoSongRepository struct {
 	db      *dynamo.DB
 	docRepo DocumentRepository
 }
 
+// NewDynamoSongRepository returns a new instance of DynamoSongRepository.
 func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoSongRepository {
 	return &DynamoSongRepository{
 		db:      db,
@@ -25,6 +29,8 @@ func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoS
 	}
 }
 
+// CreateSongWithDocuments stores a new song and its associated documents in a single transactional write.
+// Returns utils.ErrInternalServer on marshalling errors or any write failure.
 func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) error {
 	var transactItems []*dynamodb.TransactWriteItem
 
@@ -72,6 +78,8 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 	return nil
 }
 
+// GetAllSongs retrieves all songs from the SongTable.
+// Returns a list of songs or an internal error if the query fails.
 func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 	var songs []models.Song
 	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
@@ -82,6 +90,11 @@ func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 	return songs, nil
 }
 
+// GetSongByID retrieves a song by its ID.
+// Returns:
+//   - (*models.Song, nil) on success
+//   - (nil, utils.ErrNotFound) if the song does not exist
+//   - (nil, utils.ErrInternalServer) for marshalling or database access errors
 func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {
 	var song models.Song
 	err := d.db.Table(bootstrap.SongTableName).Get("id", id).One(&song)
@@ -93,6 +106,9 @@ func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {
 	return &song, nil
 }
 
+// UpdateSong applies partial updates to a song by its ID.
+// Automatically sets the updated_at field to the current timestamp.
+// Returns an error if the update fails or the item does not exist.
 func (d *DynamoSongRepository) UpdateSong(id string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now().UTC().Format(time.RFC3339)
 	update := d.db.Table(bootstrap.SongTableName).Update("id", id)
@@ -110,6 +126,10 @@ func (d *DynamoSongRepository) UpdateSong(id string, updates map[string]interfac
 	return nil
 }
 
+// DeleteSongWithDocuments removes a song and all of its associated documents in a single transaction.
+// Returns:
+//   - utils.ErrNotFound if the song does not exist
+//   - utils.ErrInternalServer if deletion fails at any point
 func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	_, err := d.GetSongByID(songID)
 	if err != nil {

@@ -10,5 +10,8 @@ type AuthCredentials struct {
 type AuthRepository interface {
 
 	// GetAuthCredentials returns the stored admin username and hashed password.
+	// Returns:
+	//   - (*AuthCredentials, nil) on success
+	//   - (nil, utils.ErrInternalServer) if retrieval or parsing fails
 	GetAuthCredentials() (*AuthCredentials, error)
 }
