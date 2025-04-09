@@ -205,3 +205,150 @@ func TestSearchService_ListSongs_RepositoryError(t *testing.T) {
 	assert.ErrorIs(t, err, utils.ErrInternalServer)
 	mockSearchRepo.AssertExpectations(t)
 }
+
+func TestSearchService_ListDocuments_FilterByTitle(t *testing.T) {
+	mockRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockRepo)
+
+	expected := []models.Document{
+		{ID: "1", TitleNormalized: "love of my life", Type: "sheet_music"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockRepo.
+		On("ListDocuments", "love", "", "", "created_at", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	var next repository.PagingKey = nil
+	result, _, err := service.ListDocuments("love", "", "", "created_at", "desc", 10, next)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "love of my life", result[0].TitleNormalized)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_FilterByInstrument(t *testing.T) {
+	mockRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockRepo)
+
+	expected := []models.Document{
+		{ID: "2", Instrument: []string{"Guitar"}, Type: "tablature"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockRepo.
+		On("ListDocuments", "", "Guitar", "", "created_at", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	result, _, err := service.ListDocuments("", "Guitar", "", "created_at", "desc", 10, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "tablature", result[0].Type)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_FilterByType(t *testing.T) {
+	mockRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockRepo)
+
+	expected := []models.Document{
+		{ID: "3", Type: "sheet_music"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockRepo.
+		On("ListDocuments", "", "", "sheet_music", "created_at", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	result, _, err := service.ListDocuments("", "", "sheet_music", "created_at", "desc", 10, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "sheet_music", result[0].Type)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_CombinedFilters(t *testing.T) {
+	mockRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockRepo)
+
+	expected := []models.Document{
+		{ID: "4", TitleNormalized: "somebody to love", Type: "sheet_music", Instrument: []string{"Violin"}},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockRepo.
+		On("ListDocuments", "love", "Violin", "sheet_music", "title", "asc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	result, _, err := service.ListDocuments("love", "Violin", "sheet_music", "title", "asc", 10, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "somebody to love", result[0].TitleNormalized)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_InvalidSortField_ShouldFallbackToCreatedAt(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	expected := []models.Document{
+		{ID: "6", TitleNormalized: "one vision", Type: "sheet_music"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockSearchRepo.
+		On("ListDocuments", "queen", "", "", "created_at", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	var next repository.PagingKey = nil
+	result, _, err := service.ListDocuments("queen", "", "", "banana", "desc", 10, next)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "one vision", result[0].TitleNormalized)
+	mockSearchRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_InvalidSortOrder_ShouldFallbackToDesc(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	expected := []models.Document{
+		{ID: "7", TitleNormalized: "innuendo", Type: "tablature"},
+	}
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+	mockSearchRepo.
+		On("ListDocuments", "innuendo", "", "", "title", "desc", 10, mock.Anything).
+		Return(expected, emptyKey, nil)
+
+	result, _, err := service.ListDocuments("innuendo", "", "", "title", "sideways", 10, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "innuendo", result[0].TitleNormalized)
+	mockSearchRepo.AssertExpectations(t)
+}
+
+func TestSearchService_ListDocuments_RepositoryError(t *testing.T) {
+	mockSearchRepo := new(mocks.MockSearchRepository)
+	service := services.NewSearchService(mockSearchRepo)
+
+	emptyKey := repository.PagingKey(map[string]interface{}{})
+
+	mockSearchRepo.
+		On("ListDocuments", "queen", "", "", "created_at", "desc", 10, mock.Anything).
+		Return([]models.Document{}, emptyKey, utils.ErrInternalServer)
+
+	var next repository.PagingKey = nil
+	result, _, err := service.ListDocuments("queen", "", "", "created_at", "desc", 10, next)
+
+	assert.Error(t, err)
+	assert.Empty(t, result)
+	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	mockSearchRepo.AssertExpectations(t)
+}
