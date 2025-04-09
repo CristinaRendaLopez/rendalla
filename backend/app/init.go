@@ -28,13 +28,12 @@ func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 	// Initialize services
 	idGen := &utils.UUIDGenerator{}
 	timeProvider := &utils.UTCTimeProvider{}
-	clock := &utils.RealClock{}
 	tokenGen := &utils.JWTTokenGenerator{Secret: []byte(cfg.JWTSecret)}
 
 	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
 	documentService := services.NewDocumentService(documentRepo, songRepo, idGen, timeProvider)
 	searchService := services.NewSearchService(searchRepo)
-	authService := services.NewAuthService(authRepo, clock, tokenGen)
+	authService := services.NewAuthService(authRepo, timeProvider, tokenGen)
 
 	// Initialize handlers
 	songHandler := handlers.NewSongHandler(songService)

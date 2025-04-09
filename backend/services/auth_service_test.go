@@ -12,12 +12,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func setupAuthServiceTest() (*services.AuthService, *mocks.MockAuthRepository, *mocks.MockClock, *mocks.MockTokenGenerator) {
+func setupAuthServiceTest() (*services.AuthService, *mocks.MockAuthRepository, *mocks.MockTimeProvider, *mocks.MockTokenGenerator) {
 	authRepo := new(mocks.MockAuthRepository)
-	clock := new(mocks.MockClock)
+	timeProvider := new(mocks.MockTimeProvider)
 	tokenGen := new(mocks.MockTokenGenerator)
-	service := services.NewAuthService(authRepo, clock, tokenGen)
-	return service, authRepo, clock, tokenGen
+	service := services.NewAuthService(authRepo, timeProvider, tokenGen)
+	return service, authRepo, timeProvider, tokenGen
 }
 
 func TestAuthenticateUser_Success(t *testing.T) {
