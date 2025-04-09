@@ -20,9 +20,11 @@ func TestListSongs(t *testing.T) {
 		{ID: "2", Title: "We Will Rock You", Author: "Queen", Genres: []string{"Rock"}},
 	}
 
-	mockSearchRepo.On("ListSongs", "rock", 10, dynamo.PagingKey(nil)).Return(songs, dynamo.PagingKey(nil), nil)
+	mockSearchRepo.
+		On("ListSongs", "rock", "created_at", "desc", 10, dynamo.PagingKey(nil)).
+		Return(songs, dynamo.PagingKey(nil), nil)
 
-	result, _, err := service.ListSongs("rock", 10, dynamo.PagingKey(nil))
+	result, _, err := service.ListSongs("rock", "created_at", "desc", 10, dynamo.PagingKey(nil))
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -34,9 +36,11 @@ func TestListSongs_NotFound(t *testing.T) {
 	mockSearchRepo := new(mocks.MockSearchRepository)
 	service := services.NewSearchService(mockSearchRepo)
 
-	mockSearchRepo.On("ListSongs", "unknown", 10, dynamo.PagingKey(nil)).Return([]models.Song{}, dynamo.PagingKey(nil), nil)
+	mockSearchRepo.
+		On("ListSongs", "unknown", "created_at", "desc", 10, dynamo.PagingKey(nil)).
+		Return([]models.Song{}, dynamo.PagingKey(nil), nil)
 
-	result, _, err := service.ListSongs("unknown", 10, dynamo.PagingKey(nil))
+	result, _, err := service.ListSongs("unknown", "created_at", "desc", 10, dynamo.PagingKey(nil))
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)

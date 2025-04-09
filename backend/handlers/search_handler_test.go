@@ -21,8 +21,8 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 func TestListSongsHandler_Success(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", 10, mock.Anything).Return([]models.Song{
-		{ID: "1", Title: "Love Me Do"},
+	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "1", Title: "Love of My Life", Author: "Queen"},
 	}, nil, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
@@ -31,26 +31,31 @@ func TestListSongsHandler_Success(t *testing.T) {
 	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Love Me Do")
+	assert.Contains(t, w.Body.String(), "Love of My Life")
 	mockService.AssertExpectations(t)
 }
 
-func TestListSongsHandler_MissingTitle(t *testing.T) {
-	handler, _ := setupSearchHandlerTest()
+func TestListSongsHandler_WithoutTitle_WithSorting(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search", nil)
-	c.Request.URL.RawQuery = "title="
+	mockService.On("ListSongs", "", "title", "asc", 10, mock.Anything).Return([]models.Song{
+		{ID: "2", Title: "Bohemian Rhapsody", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?sort=title&order=asc", nil)
+	c.Request.URL.RawQuery = "sort=title&order=asc"
 
 	handler.ListSongsHandler(c)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing title parameter")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Bohemian Rhapsody")
+	mockService.AssertExpectations(t)
 }
 
-func TestListSongsHandler_Service_Error(t *testing.T) {
+func TestListSongsHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
+	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return(nil, nil, utils.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
@@ -58,7 +63,7 @@ func TestListSongsHandler_Service_Error(t *testing.T) {
 	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error searching for songs")
+	assert.Contains(t, w.Body.String(), "Error listing songs")
 	mockService.AssertExpectations(t)
 }
 
