@@ -18,7 +18,7 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 	return handler, mockService
 }
 
-func TestListSongsHandler_Success(t *testing.T) {
+func TestListSongsHandler_FilterByTitle_DefaultSort(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
 	mockService.On("ListSongs", "love", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
@@ -35,7 +35,77 @@ func TestListSongsHandler_Success(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestListSongsHandler_WithoutTitle_WithSorting(t *testing.T) {
+func TestListSongsHandler_TitleWithSortDesc(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "love", "title", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "2", Title: "Somebody to Love", Author: "Queen"},
+		{ID: "1", Title: "Love of My Life", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love&sort=title&order=desc", nil)
+	c.Request.URL.RawQuery = "title=love&sort=title&order=desc"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Love of My Life")
+	assert.Contains(t, w.Body.String(), "Somebody to Love")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_SortByCreatedAtAsc(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "", "created_at", "asc", 10, mock.Anything).Return([]models.Song{
+		{ID: "3", Title: "Seven Seas of Rhye", Author: "Queen", CreatedAt: "1974-01-01T00:00:00Z"},
+		{ID: "4", Title: "Radio Ga Ga", Author: "Queen", CreatedAt: "1984-01-01T00:00:00Z"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?sort=created_at&order=asc", nil)
+	c.Request.URL.RawQuery = "sort=created_at&order=asc"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Seven Seas of Rhye")
+	assert.Contains(t, w.Body.String(), "Radio Ga Ga")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_DefaultParams(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "5", Title: "The Show Must Go On", Author: "Queen"},
+		{ID: "6", Title: "I Want It All", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search", nil)
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "The Show Must Go On")
+	assert.Contains(t, w.Body.String(), "I Want It All")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_EmptyResult(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "radio", "created_at", "desc", 10, mock.Anything).Return([]models.Song{}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=radio", nil)
+	c.Request.URL.RawQuery = "title=radio"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"data":[]`)
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_SortByTitleAsc_NoFilter(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
 	mockService.On("ListSongs", "", "title", "asc", 10, mock.Anything).Return([]models.Song{
@@ -49,6 +119,75 @@ func TestListSongsHandler_WithoutTitle_WithSorting(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Bohemian Rhapsody")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_InvalidSortField_ShouldFallbackToCreatedAt(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "1", Title: "Another One Bites the Dust", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&sort=banana", nil)
+	c.Request.URL.RawQuery = "title=queen&sort=banana"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Another One Bites the Dust")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_InvalidOrder_ShouldFallbackToDesc(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "queen", "title", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "2", Title: "Under Pressure", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&sort=title&order=sideways", nil)
+	c.Request.URL.RawQuery = "title=queen&sort=title&order=sideways"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Under Pressure")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_LimitZero_ShouldFallbackToDefault(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "3", Title: "Innuendo", Author: "Queen"},
+	}, nil, nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=queen&limit=0", nil)
+	c.Request.URL.RawQuery = "title=queen&limit=0"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Innuendo")
+	mockService.AssertExpectations(t)
+}
+
+func TestListSongsHandler_NextTokenPresent(t *testing.T) {
+	handler, mockService := setupSearchHandlerTest()
+
+	mockService.On("ListSongs", "", "created_at", "desc", 10, mock.Anything).Return([]models.Song{
+		{ID: "4", Title: "One Vision", Author: "Queen"},
+	}, "some-token", nil)
+
+	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?next_token=some-token", nil)
+	c.Request.URL.RawQuery = "next_token=some-token"
+
+	handler.ListSongsHandler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "One Vision")
+	assert.Contains(t, w.Body.String(), "next_token")
 	mockService.AssertExpectations(t)
 }
 
