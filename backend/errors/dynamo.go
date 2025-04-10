@@ -6,7 +6,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/guregu/dynamo"
-	"github.com/sirupsen/logrus"
+)
+
+const (
+	AWSValidationException             = "ValidationException"
+	AWSAccessDeniedException           = "AccessDeniedException"
+	AWSThrottlingException             = "ThrottlingException"
+	AWSRequestLimitExceeded            = "RequestLimitExceeded"
+	AWSTransactionConflictException    = "TransactionConflictException"
+	AWSItemCollectionSizeLimitExceeded = "ItemCollectionSizeLimitExceededException"
 )
 
 func HandleDynamoError(err error) error {
@@ -15,34 +23,37 @@ func HandleDynamoError(err error) error {
 	}
 
 	if stdErrors.Is(err, dynamo.ErrNotFound) {
-		logrus.WithError(err).Warn("Item not found in DynamoDB")
 		return ErrResourceNotFound
+	}
+
+	if stdErrors.Is(err, dynamo.ErrTooMany) {
+		return ErrTooManyResults
 	}
 
 	if awsErr, ok := err.(awserr.Error); ok {
 		switch awsErr.Code() {
 		case dynamodb.ErrCodeConditionalCheckFailedException:
-			logrus.WithError(awsErr).Warn("Operation not allowed: conditions not met")
 			return ErrOperationNotAllowed
-		case dynamodb.ErrCodeProvisionedThroughputExceededException:
-			logrus.WithError(awsErr).Warn("Throughput limit exceeded in DynamoDB")
+		case dynamodb.ErrCodeProvisionedThroughputExceededException,
+			AWSThrottlingException,
+			AWSRequestLimitExceeded:
 			return ErrThroughputExceeded
 		case dynamodb.ErrCodeResourceNotFoundException:
-			logrus.WithError(awsErr).Warn("DynamoDB resource not found")
 			return ErrResourceNotFound
 		case dynamodb.ErrCodeInternalServerError:
-			logrus.WithError(awsErr).Error("Internal error in DynamoDB")
 			return ErrInternalServer
+		case AWSAccessDeniedException:
+			return ErrUnauthorized
+		case AWSValidationException:
+			return ErrBadRequest
+		case AWSItemCollectionSizeLimitExceeded:
+			return ErrValidationFailed
+		case AWSTransactionConflictException:
+			return ErrOperationNotAllowed
 		default:
-			logrus.WithError(awsErr).Error("Unhandled DynamoDB error")
 			return ErrInternalServer
 		}
 	}
 
-	logrus.WithError(err).Error("Generic error")
 	return ErrInternalServer
-}
-
-func IsDynamoNotFoundError(err error) bool {
-	return stdErrors.Is(err, ErrResourceNotFound)
 }

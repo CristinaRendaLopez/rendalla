@@ -1,6 +1,7 @@
 package repository
 
 import (
+	stdErrors "errors"
 	"time"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
@@ -138,8 +139,7 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	}
 
 	documents, err := d.docRepo.GetDocumentsBySongID(songID)
-	if err != nil && !errors.IsDynamoNotFoundError(err) {
-		logrus.WithField("song_id", songID).WithError(err).Error("Failed to fetch documents before deletion")
+	if err != nil && !stdErrors.Is(err, errors.ErrResourceNotFound) {
 		return errors.HandleDynamoError(err)
 	}
 
