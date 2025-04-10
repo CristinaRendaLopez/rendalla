@@ -9,14 +9,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SearchHandler handles HTTP requests for searching songs and documents.
+// It delegates the business logic to the SearchServiceInterface.
 type SearchHandler struct {
 	searchService services.SearchServiceInterface
 }
 
+// NewSearchHandler returns a new instance of SearchHandler.
 func NewSearchHandler(searchService services.SearchServiceInterface) *SearchHandler {
 	return &SearchHandler{searchService: searchService}
 }
 
+// ListSongsHandler handles GET /songs/search.
+// Supports filtering by title and sorting/pagination options.
 func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 	title := c.Query("title")
 	sortField := c.Query("sort")
@@ -43,6 +48,8 @@ func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 	})
 }
 
+// ListDocumentsHandler handles GET /documents/search.
+// Supports filtering by title, instrument, and type, as well as sorting and pagination.
 func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
 	title := c.Query("title")
 	instrument := c.Query("instrument")

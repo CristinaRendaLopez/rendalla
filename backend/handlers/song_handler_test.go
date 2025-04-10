@@ -112,15 +112,20 @@ func TestCreateSongHandler_InvalidInput(t *testing.T) {
 }
 
 func TestCreateSongHandler_InvalidDocument(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
+	handler, mockService := setupSongHandlerTest()
 
-	data := `{"title": "Title", "author": "Auth", "genres": ["Pop"], "documents":[{"type": "", "instrument": [], "pdf_url": ""}]}`
+	mockService.
+		On("CreateSongWithDocuments", mock.Anything, mock.Anything).
+		Return("", utils.ErrValidationFailed)
+
+	data := `{"title": "Title", "author": "Auth", "genres": ["Pop"], "documents":[{}]}`
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	handler.CreateSongHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertExpectations(t)
 }
 
 func TestCreateSongHandler_ServiceError(t *testing.T) {
@@ -166,7 +171,8 @@ func TestUpdateSongHandler_MissingID(t *testing.T) {
 }
 
 func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
+	handler, mockService := setupSongHandlerTest()
+	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title": 123}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -178,7 +184,8 @@ func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
 }
 
 func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
+	handler, mockService := setupSongHandlerTest()
+	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -190,8 +197,8 @@ func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
 }
 
 func TestUpdateSongHandler_InvalidFields(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
+	handler, mockService := setupSongHandlerTest()
+	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":""}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})

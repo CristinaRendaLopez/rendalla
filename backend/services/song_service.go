@@ -36,6 +36,10 @@ func NewSongService(
 //   - the generated song ID on success
 //   - error if the creation fails at any point
 func (s *SongService) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
+	if err := utils.ValidateSongAndDocuments(song, documents); err != nil {
+		return "", err
+	}
+
 	song.ID = s.idGen.NewID()
 	now := s.timeProvider.Now()
 	song.CreatedAt = now
@@ -95,6 +99,10 @@ func (s *SongService) UpdateSong(id string, updates map[string]interface{}) erro
 
 	if title, ok := updates["title"].(string); ok {
 		updates["title_normalized"] = utils.Normalize(title)
+	}
+
+	if err := utils.ValidateSongUpdate(updates); err != nil {
+		return err
 	}
 
 	return s.songRepo.UpdateSong(id, updates)

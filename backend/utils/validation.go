@@ -86,6 +86,38 @@ func ValidateSong(song models.Song) error {
 	return nil
 }
 
+func ValidateDocument(doc models.Document) error {
+	if IsEmptyString(doc.Type) {
+		return ErrValidationFailed
+	}
+	if IsEmptyString(doc.PDFURL) {
+		return ErrValidationFailed
+	}
+	if len(doc.Instrument) == 0 {
+		return ErrValidationFailed
+	}
+	for _, inst := range doc.Instrument {
+		if IsEmptyString(inst) {
+			return ErrValidationFailed
+		}
+	}
+	return nil
+}
+
+func ValidateSongAndDocuments(song models.Song, documents []models.Document) error {
+	if err := ValidateSong(song); err != nil {
+		return err
+	}
+
+	for _, doc := range documents {
+		if err := ValidateDocument(doc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func ValidateDocumentUpdate(update map[string]interface{}) error {
 	if err := ValidateNonEmptyStringField(update, "type"); err != nil {
 		return err
@@ -111,24 +143,6 @@ func ValidateSongUpdate(update map[string]interface{}) error {
 	}
 	if err := ValidateNonEmptyStringArrayField(update, "genres"); err != nil {
 		return err
-	}
-	return nil
-}
-
-func ValidateDocument(doc models.Document) error {
-	if IsEmptyString(doc.Type) {
-		return ErrValidationFailed
-	}
-	if IsEmptyString(doc.PDFURL) {
-		return ErrValidationFailed
-	}
-	if len(doc.Instrument) == 0 {
-		return ErrValidationFailed
-	}
-	for _, inst := range doc.Instrument {
-		if IsEmptyString(inst) {
-			return ErrValidationFailed
-		}
 	}
 	return nil
 }

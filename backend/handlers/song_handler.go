@@ -10,14 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SongHandler handles HTTP requests related to song operations.
+// It delegates the business logic to the SongServiceInterface.
 type SongHandler struct {
 	songService services.SongServiceInterface
 }
 
+// NewSongHandler returns a new instance of SongHandler.
 func NewSongHandler(songService services.SongServiceInterface) *SongHandler {
 	return &SongHandler{songService: songService}
 }
 
+// SongRequest represents the JSON payload expected when creating or updating a song.
 type SongRequest struct {
 	Title     string            `json:"title" binding:"required,min=3"`
 	Author    string            `json:"author" binding:"required"`
@@ -25,6 +29,8 @@ type SongRequest struct {
 	Documents []models.Document `json:"documents,omitempty"`
 }
 
+// GetAllSongsHandler handles GET /songs.
+// Returns all songs stored in the system.
 func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 	songs, err := h.songService.GetAllSongs()
 	if err != nil {
@@ -36,6 +42,8 @@ func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": songs})
 }
 
+// GetSongByIDHandler handles GET /songs/:id.
+// Retrieves a song by its unique ID.
 func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {
@@ -52,6 +60,8 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": song})
 }
 
+// CreateSongHandler handles POST /songs.
+// Delegates validation and creation to the service layer.
 func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -59,26 +69,11 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
+
 	song := models.Song{
 		Title:  req.Title,
 		Author: req.Author,
 		Genres: req.Genres,
-	}
-
-	if err := utils.ValidateSong(song); err != nil {
-		utils.HandleAPIError(c, err, "Invalid song data")
-		return
-	}
-
-	for i, doc := range req.Documents {
-		if err := utils.ValidateDocument(doc); err != nil {
-			logrus.WithFields(logrus.Fields{
-				"index": i,
-				"error": err.Error(),
-			}).Warn("Invalid document in song request")
-			utils.HandleAPIError(c, err, "Invalid document data")
-			return
-		}
 	}
 
 	songID, err := h.songService.CreateSongWithDocuments(song, req.Documents)
@@ -94,6 +89,8 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	})
 }
 
+// UpdateSongHandler handles PUT /songs/:id.
+// Delegates validation and update logic to the service layer.
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {
@@ -104,11 +101,6 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
 		logrus.WithError(err).Warn("Invalid JSON payload")
 		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
-		return
-	}
-
-	if err := utils.ValidateSongUpdate(songUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid song data")
 		return
 	}
 
@@ -125,6 +117,8 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully"})
 }
 
+// DeleteSongWithDocumentsHandler handles DELETE /songs/:id.
+// Deletes the song and all documents linked to it.
 func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {

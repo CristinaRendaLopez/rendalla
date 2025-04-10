@@ -10,19 +10,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// AuthHandler handles HTTP requests related to admin authentication.
+// It delegates logic to the AuthServiceInterface.
 type AuthHandler struct {
 	authService services.AuthServiceInterface
 }
 
+// NewAuthHandler returns a new instance of AuthHandler.
 func NewAuthHandler(authService services.AuthServiceInterface) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
+// LoginRequest represents the payload for POST /auth/login.
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
+// LoginHandler handles POST /auth/login.
+// Validates credentials and returns a signed JWT token upon successful authentication.
 func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -52,6 +58,8 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
+// MeHandler handles GET /auth/me.
+// Returns the username of the authenticated user and a hardcoded role.
 func (h *AuthHandler) MeHandler(c *gin.Context) {
 	username, exists := c.Get("username")
 	if !exists {

@@ -11,14 +11,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DocumentHandler handles HTTP requests related to documents (scores or tablatures).
+// It delegates business logic to the DocumentServiceInterface.
 type DocumentHandler struct {
 	documentService services.DocumentServiceInterface
 }
 
+// NewDocumentHandler returns a new instance of DocumentHandler.
 func NewDocumentHandler(documentService services.DocumentServiceInterface) *DocumentHandler {
 	return &DocumentHandler{documentService: documentService}
 }
 
+// GetAllDocumentsBySongIDHandler handles GET /songs/:id/documents.
+// Retrieves all documents associated with a specific song.
 func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
@@ -35,6 +40,8 @@ func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": documents})
 }
 
+// GetDocumentByIDHandler handles GET /songs/:id/documents/:doc_id.
+// Retrieves a single document by song ID and document ID.
 func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
@@ -59,6 +66,8 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": document})
 }
 
+// CreateDocumentHandler handles POST /songs/:id/documents.
+// Validates the request and creates a new document linked to a song.
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 	if err := c.ShouldBindJSON(&document); err != nil {
@@ -95,6 +104,8 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	})
 }
 
+// UpdateDocumentHandler handles PUT /songs/:id/documents/:doc_id.
+// Applies updates to a specific document.
 func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
@@ -132,6 +143,8 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Document updated successfully"})
 }
 
+// DeleteDocumentHandler handles DELETE /songs/:id/documents/:doc_id.
+// Deletes a specific document linked to a song.
 func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 	songID, ok := utils.RequireParam(c, "id")
 	if !ok {
