@@ -13,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Initializes environment variables from a .env file.
+// Logs a warning if the file is not found.
 func init() {
 	err := godotenv.Load()
 	if err != nil {
@@ -20,6 +22,8 @@ func init() {
 	}
 }
 
+// getJWTSecret retrieves the JWT secret from the environment.
+// Falls back to a default value if none is defined.
 func getJWTSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
@@ -29,6 +33,11 @@ func getJWTSecret() []byte {
 	return []byte(secret)
 }
 
+// JWTAuthMiddleware is a Gin middleware that enforces JWT authentication.
+// It checks the Authorization header for a valid Bearer token, parses it,
+// and extracts the username claim to make it available in the context.
+//
+// If the token is invalid, expired, or missing, it responds with 401 Unauthorized.
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
