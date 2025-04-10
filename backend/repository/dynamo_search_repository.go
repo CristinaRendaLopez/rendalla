@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/guregu/dynamo"
@@ -57,10 +59,10 @@ func (d *DynamoSearchRepository) ListSongs(title, sortField, sortOrder string, l
 	nextKey, err := query.AllWithLastEvaluatedKey(&songs)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"title": title,
-			"error": err,
-		}).Error("Failed to list songs")
-		return nil, nil, err
+			"title":     title,
+			"operation": "list_songs",
+		}).WithError(err).Error("Failed to list songs")
+		return nil, nil, fmt.Errorf("listing songs: %w", errors.HandleDynamoError(err))
 	}
 
 	if sortField == "" {
@@ -86,6 +88,12 @@ func (d *DynamoSearchRepository) ListSongs(title, sortField, sortOrder string, l
 			return true
 		}
 	})
+
+	logrus.WithFields(logrus.Fields{
+		"operation":   "list_songs",
+		"song_count":  len(songs),
+		"next_token?": nextKey != nil,
+	}).Info("Songs listed successfully")
 
 	return songs, nextKey, nil
 }
@@ -132,9 +140,9 @@ func (d *DynamoSearchRepository) ListDocuments(title, instrument, docType, sortF
 			"title":      title,
 			"instrument": instrument,
 			"type":       docType,
-			"error":      err,
-		}).Error("Failed to list documents")
-		return nil, nil, err
+			"operation":  "list_documents",
+		}).WithError(err).Error("Failed to list documents")
+		return nil, nil, fmt.Errorf("listing documents: %w", errors.HandleDynamoError(err))
 	}
 
 	if sortField == "" {
@@ -160,6 +168,12 @@ func (d *DynamoSearchRepository) ListDocuments(title, instrument, docType, sortF
 			return true
 		}
 	})
+
+	logrus.WithFields(logrus.Fields{
+		"operation":      "list_documents",
+		"document_count": len(documents),
+		"next_token?":    nextKey != nil,
+	}).Info("Documents listed successfully")
 
 	return documents, nextKey, nil
 }

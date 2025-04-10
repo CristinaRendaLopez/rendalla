@@ -2,6 +2,7 @@ package repository
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
@@ -27,32 +28,44 @@ func NewAWSAuthRepository() *AWSAuthRepository {
 //   - (*AuthCredentials, nil) on success
 //   - (nil, errors.ErrInternalServer) if the secret cannot be fetched or parsed
 func (a *AWSAuthRepository) GetAuthCredentials() (*AuthCredentials, error) {
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")),
-	}))
-
-	svc := secretsmanager.New(sess)
-
+	region := os.Getenv("AWS_REGION")
 	secretName := os.Getenv("AUTH_SECRET_NAME")
 	if secretName == "" {
 		secretName = "rendalla/auth_credentials"
 	}
 
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	}))
+	svc := secretsmanager.New(sess)
+
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
 	}
+
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to retrieve secret from Secrets Manager")
-		return nil, errors.ErrInternalServer
+		logrus.WithFields(logrus.Fields{
+			"operation":   "get_auth_credentials",
+			"secret_name": secretName,
+		}).WithError(err).Error("Failed to retrieve secret from Secrets Manager")
+		return nil, fmt.Errorf("retrieving secret %s from Secrets Manager: %w", secretName, errors.ErrInternalServer)
 	}
 
 	var credentials AuthCredentials
 	err = json.Unmarshal([]byte(*result.SecretString), &credentials)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to parse secret JSON")
-		return nil, errors.ErrInternalServer
+		logrus.WithFields(logrus.Fields{
+			"operation":   "get_auth_credentials",
+			"secret_name": secretName,
+		}).WithError(err).Error("Failed to parse secret JSON")
+		return nil, fmt.Errorf("parsing secret %s: %w", secretName, errors.ErrInternalServer)
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"operation":   "get_auth_credentials",
+		"secret_name": secretName,
+	}).Info("Auth credentials retrieved successfully")
 
 	return &credentials, nil
 }
