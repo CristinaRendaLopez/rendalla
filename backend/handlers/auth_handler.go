@@ -52,9 +52,7 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"username": req.Username,
-	}).Info("User authenticated successfully")
+	logrus.WithField("username", req.Username).Info("User authenticated successfully")
 
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
@@ -74,9 +72,7 @@ func (h *AuthHandler) MeHandler(c *gin.Context) {
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"username": strUsername,
-	}).Info("User details retrieved successfully")
+	logrus.WithField("username", strUsername).Info("User details retrieved successfully")
 
 	c.JSON(http.StatusOK, gin.H{"username": strUsername, "role": "admin"})
 }

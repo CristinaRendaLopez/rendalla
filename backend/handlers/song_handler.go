@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	stdErrors "errors"
 	"net/http"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
@@ -53,7 +54,11 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 
 	song, err := h.songService.GetSongByID(id)
 	if err != nil {
-		errors.HandleAPIError(c, err, "Song not found")
+		msg := "Failed to retrieve song"
+		if stdErrors.Is(err, errors.ErrResourceNotFound) {
+			msg = "Song not found"
+		}
+		errors.HandleAPIError(c, err, msg)
 		return
 	}
 
@@ -66,7 +71,6 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logrus.WithError(err).Warn("Invalid JSON payload")
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
@@ -100,7 +104,6 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 
 	var songUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
-		logrus.WithError(err).Warn("Invalid JSON payload")
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}

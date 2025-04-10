@@ -31,7 +31,7 @@ func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 
 	songs, nextKey, err := h.searchService.ListSongs(title, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		errors.HandleAPIError(c, err, "Error listing songs")
+		errors.HandleAPIError(c, err, "Failed to list songs")
 		return
 	}
 
@@ -41,7 +41,7 @@ func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Listed songs with filters")
+	}).Info("Songs listed successfully with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       songs,
@@ -61,7 +61,7 @@ func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
 
 	documents, nextKey, err := h.searchService.ListDocuments(title, instrument, docType, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		errors.HandleAPIError(c, err, "Error listing documents")
+		errors.HandleAPIError(c, err, "Failed to list documents")
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
 		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Listed documents with filters")
+	}).Info("Documents listed successfully with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       documents,

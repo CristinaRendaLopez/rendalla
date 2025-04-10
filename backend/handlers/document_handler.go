@@ -56,7 +56,11 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 
 	document, err := h.documentService.GetDocumentByID(songID, docID)
 	if err != nil {
-		errors.HandleAPIError(c, err, "Document not found")
+		message := "Failed to retrieve document"
+		if stdErrors.Is(err, errors.ErrResourceNotFound) {
+			message = "Document not found"
+		}
+		errors.HandleAPIError(c, err, message)
 		return
 	}
 
@@ -72,7 +76,6 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 	if err := c.ShouldBindJSON(&document); err != nil {
-		logrus.WithError(err).Warn("Invalid JSON payload")
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
@@ -119,7 +122,6 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 
 	var docUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
-		logrus.WithError(err).Warn("Invalid JSON payload")
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
