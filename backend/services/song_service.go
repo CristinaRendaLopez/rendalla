@@ -1,7 +1,8 @@
 package services
 
 import (
-	"github.com/CristinaRendaLopez/rendalla-backend/errors"
+	"fmt"
+
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -15,6 +16,9 @@ type SongService struct {
 	idGen        utils.IDGenerator
 	timeProvider utils.TimeProvider
 }
+
+// Ensure SongService implements SongServiceInterface.
+var _ SongServiceInterface = (*SongService)(nil)
 
 // NewSongService returns a new instance of SongService with its required dependencies.
 func NewSongService(
@@ -38,7 +42,7 @@ func NewSongService(
 //   - error if the creation fails at any point
 func (s *SongService) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
 	if err := utils.ValidateSongAndDocuments(song, documents); err != nil {
-		return "", err
+		return "", fmt.Errorf("validating song and documents: %w", err)
 	}
 
 	song.ID = s.idGen.NewID()
@@ -57,7 +61,7 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 
 	err := s.songRepo.CreateSongWithDocuments(song, documents)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("creating song with documents: %w", err)
 	}
 
 	return song.ID, nil
@@ -68,7 +72,11 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 //   - ([]models.Song, nil) on success
 //   - (nil, error) if the operation fails
 func (s *SongService) GetAllSongs() ([]models.Song, error) {
-	return s.songRepo.GetAllSongs()
+	songs, err := s.songRepo.GetAllSongs()
+	if err != nil {
+		return nil, fmt.Errorf("retrieving all songs: %w", err)
+	}
+	return songs, nil
 }
 
 // GetSongByID retrieves a song by its unique identifier.
@@ -77,7 +85,11 @@ func (s *SongService) GetAllSongs() ([]models.Song, error) {
 //   - (nil, errors.ErrNotFound) if the song does not exist
 //   - (nil, error) for unexpected failures
 func (s *SongService) GetSongByID(id string) (*models.Song, error) {
-	return s.songRepo.GetSongByID(id)
+	song, err := s.songRepo.GetSongByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving song with ID %s: %w", id, err)
+	}
+	return song, nil
 }
 
 // UpdateSong applies partial updates to a song, normalizing the title if provided.
@@ -87,13 +99,9 @@ func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 //   - errors.ErrResourceNotFound if the song does not exist
 //   - error if the update operation fails
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
-	song, err := s.songRepo.GetSongByID(id)
+	_, err := s.songRepo.GetSongByID(id)
 	if err != nil {
-		return err
-	}
-
-	if song == nil {
-		return errors.ErrResourceNotFound
+		return fmt.Errorf("checking existence of song %s: %w", id, err)
 	}
 
 	updates["updated_at"] = s.timeProvider.Now()
@@ -103,10 +111,14 @@ func (s *SongService) UpdateSong(id string, updates map[string]interface{}) erro
 	}
 
 	if err := utils.ValidateSongUpdate(updates); err != nil {
-		return err
+		return fmt.Errorf("validating song update: %w", err)
 	}
 
-	return s.songRepo.UpdateSong(id, updates)
+	if err := s.songRepo.UpdateSong(id, updates); err != nil {
+		return fmt.Errorf("updating song %s: %w", id, err)
+	}
+
+	return nil
 }
 
 // DeleteSongWithDocuments removes a song and all associated documents.
@@ -114,5 +126,8 @@ func (s *SongService) UpdateSong(id string, updates map[string]interface{}) erro
 //   - nil on success
 //   - error if the deletion fails
 func (s *SongService) DeleteSongWithDocuments(songID string) error {
-	return s.songRepo.DeleteSongWithDocuments(songID)
+	if err := s.songRepo.DeleteSongWithDocuments(songID); err != nil {
+		return fmt.Errorf("deleting song %s with documents: %w", songID, err)
+	}
+	return nil
 }

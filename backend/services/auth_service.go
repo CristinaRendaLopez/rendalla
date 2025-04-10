@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -43,7 +45,7 @@ func NewAuthService(
 func (s *AuthService) AuthenticateUser(username, password string) (string, error) {
 	creds, err := s.repo.GetAuthCredentials()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("retrieving auth credentials: %w", err)
 	}
 
 	if username != creds.Username {
@@ -63,7 +65,7 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 	token, err := s.tokenGenerator.GenerateToken(claims)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to generate JWT token")
-		return "", errors.ErrTokenGenerationFailed
+		return "", fmt.Errorf("generating JWT token: %w", errors.ErrTokenGenerationFailed)
 	}
 
 	return token, nil
@@ -74,5 +76,9 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 //   - the stored credentials on success
 //   - errors.ErrInternalServer if retrieval fails
 func (s *AuthService) GetAuthCredentials() (*repository.AuthCredentials, error) {
-	return s.repo.GetAuthCredentials()
+	creds, err := s.repo.GetAuthCredentials()
+	if err != nil {
+		return nil, fmt.Errorf("retrieving stored auth credentials: %w", err)
+	}
+	return creds, nil
 }

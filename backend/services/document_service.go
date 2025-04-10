@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -14,6 +16,9 @@ type DocumentService struct {
 	idGen        utils.IDGenerator
 	timeProvider utils.TimeProvider
 }
+
+// Ensure DocumentService implements DocumentServiceInterface.
+var _ DocumentServiceInterface = (*DocumentService)(nil)
 
 // NewDocumentService returns a new instance of DocumentService.
 func NewDocumentService(
@@ -38,7 +43,7 @@ func NewDocumentService(
 func (s *DocumentService) CreateDocument(document models.Document) (string, error) {
 	song, err := s.songRepo.GetSongByID(document.SongID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("retrieving song for document creation (song_id=%s): %w", document.SongID, err)
 	}
 
 	document.TitleNormalized = utils.Normalize(song.Title)
@@ -47,7 +52,11 @@ func (s *DocumentService) CreateDocument(document models.Document) (string, erro
 	document.CreatedAt = now
 	document.UpdatedAt = now
 
-	return document.ID, s.repo.CreateDocument(document)
+	if err := s.repo.CreateDocument(document); err != nil {
+		return "", fmt.Errorf("creating document %s: %w", document.ID, err)
+	}
+
+	return document.ID, nil
 }
 
 // GetDocumentsBySongID returns all documents associated with the specified song ID.
@@ -55,7 +64,11 @@ func (s *DocumentService) CreateDocument(document models.Document) (string, erro
 //   - ([]models.Document, nil) on success
 //   - (nil, error) if the retrieval fails
 func (s *DocumentService) GetDocumentsBySongID(songID string) ([]models.Document, error) {
-	return s.repo.GetDocumentsBySongID(songID)
+	documents, err := s.repo.GetDocumentsBySongID(songID)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving documents for song %s: %w", songID, err)
+	}
+	return documents, nil
 }
 
 // GetDocumentByID retrieves a document by its song ID and document ID.
@@ -64,7 +77,11 @@ func (s *DocumentService) GetDocumentsBySongID(songID string) ([]models.Document
 //   - (nil, errors.ErrNotFound) if not found
 //   - (nil, error) if the retrieval fails
 func (s *DocumentService) GetDocumentByID(songID string, docID string) (*models.Document, error) {
-	return s.repo.GetDocumentByID(songID, docID)
+	doc, err := s.repo.GetDocumentByID(songID, docID)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving document %s for song %s: %w", docID, songID, err)
+	}
+	return doc, nil
 }
 
 // UpdateDocument applies updates to a document and refreshes the title_normalized and updated_at fields.
@@ -76,12 +93,18 @@ func (s *DocumentService) UpdateDocument(songID, docID string, updates map[strin
 	if _, ok := updates["title_normalized"]; !ok {
 		song, err := s.songRepo.GetSongByID(songID)
 		if err != nil {
-			return err
+			return fmt.Errorf("retrieving song for update of document %s: %w", docID, err)
 		}
 		updates["title_normalized"] = utils.Normalize(song.Title)
 	}
+
 	updates["updated_at"] = s.timeProvider.Now()
-	return s.repo.UpdateDocument(songID, docID, updates)
+
+	if err := s.repo.UpdateDocument(songID, docID, updates); err != nil {
+		return fmt.Errorf("updating document %s for song %s: %w", docID, songID, err)
+	}
+
+	return nil
 }
 
 // DeleteDocument deletes a document identified by song ID and document ID.
@@ -89,5 +112,8 @@ func (s *DocumentService) UpdateDocument(songID, docID string, updates map[strin
 //   - nil on success
 //   - error if the deletion fails
 func (s *DocumentService) DeleteDocument(songID string, docID string) error {
-	return s.repo.DeleteDocument(songID, docID)
+	if err := s.repo.DeleteDocument(songID, docID); err != nil {
+		return fmt.Errorf("deleting document %s for song %s: %w", docID, songID, err)
+	}
+	return nil
 }
