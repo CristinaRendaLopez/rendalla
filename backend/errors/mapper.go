@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+// MapErrorToStatus converts internal error types into HTTP status codes.
 func MapErrorToStatus(err error) int {
 	switch {
 	case errors.Is(err, ErrBadRequest), errors.Is(err, ErrValidationFailed):
@@ -22,6 +23,8 @@ func MapErrorToStatus(err error) int {
 	}
 }
 
+// MapErrorToMessage returns a user-friendly message based on the given error.
+// These messages are used in HTTP responses.
 func MapErrorToMessage(err error) string {
 	switch {
 	case errors.Is(err, ErrBadRequest):
@@ -47,6 +50,8 @@ func MapErrorToMessage(err error) string {
 	}
 }
 
+// MapErrorToCode returns a machine-friendly error code string for a given error.
+// These codes are included in API responses for easier client-side handling.
 func MapErrorToCode(err error) string {
 	switch {
 	case errors.Is(err, ErrBadRequest):

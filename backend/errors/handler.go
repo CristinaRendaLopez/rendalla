@@ -8,6 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// HandleAPIError sends a standardized JSON error response to the client.
+// It also logs the error with appropriate severity based on the HTTP status code.
 func HandleAPIError(c *gin.Context, err error, message string) {
 	if err == nil {
 		return
@@ -40,6 +42,8 @@ func HandleAPIError(c *gin.Context, err error, message string) {
 	})
 }
 
+// CreateErrorResponse builds an API Gateway-compatible error response.
+// It maps internal errors to meaningful HTTP status codes and serializes the error message.
 func CreateErrorResponse(err error) (events.APIGatewayProxyResponse, error) {
 	statusCode := MapErrorToStatus(err)
 	message := MapErrorToMessage(err)

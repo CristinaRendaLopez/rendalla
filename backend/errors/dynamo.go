@@ -8,6 +8,7 @@ import (
 	"github.com/guregu/dynamo"
 )
 
+// Constants for AWS error codes not included in the DynamoDB SDK constants.
 const (
 	AWSValidationException             = "ValidationException"
 	AWSAccessDeniedException           = "AccessDeniedException"
@@ -17,6 +18,8 @@ const (
 	AWSItemCollectionSizeLimitExceeded = "ItemCollectionSizeLimitExceededException"
 )
 
+// HandleDynamoError maps low-level DynamoDB and AWS SDK errors to custom application errors.
+// Returns a more meaningful application-level error based on the source of failure.
 func HandleDynamoError(err error) error {
 	if err == nil {
 		return nil
