@@ -4,6 +4,7 @@ import (
 	stdErrors "errors"
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -22,16 +23,10 @@ func NewAuthHandler(authService services.AuthServiceInterface) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
-// LoginRequest represents the payload for POST /auth/login.
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
 // LoginHandler handles POST /auth/login.
 // Validates credentials and returns a signed JWT token upon successful authentication.
 func (h *AuthHandler) LoginHandler(c *gin.Context) {
-	var req LoginRequest
+	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid request data")
 		return

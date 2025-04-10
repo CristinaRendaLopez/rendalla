@@ -4,8 +4,8 @@ import (
 	stdErrors "errors"
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -21,14 +21,6 @@ type SongHandler struct {
 // NewSongHandler returns a new instance of SongHandler.
 func NewSongHandler(songService services.SongServiceInterface) *SongHandler {
 	return &SongHandler{songService: songService}
-}
-
-// SongRequest represents the JSON payload expected when creating or updating a song.
-type SongRequest struct {
-	Title     string            `json:"title" binding:"required,min=3"`
-	Author    string            `json:"author" binding:"required"`
-	Genres    []string          `json:"genres" binding:"required,dive,min=3"`
-	Documents []models.Document `json:"documents,omitempty"`
 }
 
 // GetAllSongsHandler handles GET /songs.
@@ -69,19 +61,21 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 // CreateSongHandler handles POST /songs.
 // Delegates validation and creation to the service layer.
 func (h *SongHandler) CreateSongHandler(c *gin.Context) {
-	var req SongRequest
+	var req dto.SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
-	song := models.Song{
-		Title:  req.Title,
-		Author: req.Author,
-		Genres: req.Genres,
+	song := dto.ToSongModel(req)
+	documents := dto.ToDocumentModels(req.Documents)
+
+	if err := utils.ValidateSongAndDocuments(song, documents); err != nil {
+		errors.HandleAPIError(c, err, "Invalid song or documents")
+		return
 	}
 
-	songID, err := h.songService.CreateSongWithDocuments(song, req.Documents)
+	songID, err := h.songService.CreateSongWithDocuments(song, documents)
 	if err != nil {
 		errors.HandleAPIError(c, err, "Failed to create song")
 		return

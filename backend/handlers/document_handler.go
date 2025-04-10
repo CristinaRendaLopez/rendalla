@@ -4,8 +4,8 @@ import (
 	stdErrors "errors"
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -21,6 +21,45 @@ type DocumentHandler struct {
 // NewDocumentHandler returns a new instance of DocumentHandler.
 func NewDocumentHandler(documentService services.DocumentServiceInterface) *DocumentHandler {
 	return &DocumentHandler{documentService: documentService}
+}
+
+// CreateDocumentHandler handles POST /songs/:id/documents.
+// Validates the request and creates a new document linked to a song.
+func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
+	var req dto.DocumentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
+		return
+	}
+
+	songID, ok := utils.RequireParam(c, "id")
+	if !ok {
+		return
+	}
+
+	document := dto.ToDocumentModel(req)
+	document.SongID = songID
+
+	if err := utils.ValidateDocument(document); err != nil {
+		errors.HandleAPIError(c, err, "Invalid document data")
+		return
+	}
+
+	documentID, err := h.documentService.CreateDocument(document)
+	if err != nil {
+		errors.HandleAPIError(c, err, "Failed to create document")
+		return
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"document_id": documentID,
+		"song_id":     songID,
+	}).Info("Document created successfully")
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Document created successfully",
+		"document_id": documentID,
+	})
 }
 
 // GetAllDocumentsBySongIDHandler handles GET /songs/:id/documents.
@@ -69,43 +108,6 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 		"document_id": docID,
 	}).Info("Document retrieved successfully")
 	c.JSON(http.StatusOK, gin.H{"data": document})
-}
-
-// CreateDocumentHandler handles POST /songs/:id/documents.
-// Validates the request and creates a new document linked to a song.
-func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
-	var document models.Document
-	if err := c.ShouldBindJSON(&document); err != nil {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
-		return
-	}
-
-	songID, ok := utils.RequireParam(c, "id")
-	if !ok {
-		return
-	}
-	document.SongID = songID
-
-	if err := utils.ValidateDocument(document); err != nil {
-		errors.HandleAPIError(c, err, "Invalid document data")
-		return
-	}
-
-	documentID, err := h.documentService.CreateDocument(document)
-	if err != nil {
-		errors.HandleAPIError(c, err, "Failed to create document")
-		return
-	}
-
-	logrus.WithFields(logrus.Fields{
-		"document_id": documentID,
-		"song_id":     document.SongID,
-	}).Info("Document created successfully")
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message":     "Document created successfully",
-		"document_id": documentID,
-	})
 }
 
 // UpdateDocumentHandler handles PUT /songs/:id/documents/:doc_id.
