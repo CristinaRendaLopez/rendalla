@@ -7,12 +7,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RouterOptions allows enabling or disabling middleware features when setting up the router.
 type RouterOptions struct {
 	EnableCORS     bool
 	EnableLogger   bool
 	EnableRecovery bool
 }
 
+// SetupRouter configures and returns a new Gin router instance.
+// It registers all public and protected routes, applying middleware as needed.
+//
+// Handlers:
+//   - songHandler: handles song-related endpoints
+//   - documentHandler: handles document-related endpoints
+//   - searchHandler: handles search functionality for songs and documents
+//   - authHandler: handles authentication endpoints
+//
+// RouterOptions:
+//   - EnableCORS: enables CORS middleware if true
+//   - EnableLogger: enables Gin's logging middleware if true
+//   - EnableRecovery: enables panic recovery middleware if true
 func SetupRouter(
 	songHandler *handlers.SongHandler,
 	documentHandler *handlers.DocumentHandler,
@@ -21,15 +35,11 @@ func SetupRouter(
 	opts RouterOptions,
 ) *gin.Engine {
 
-	// Set up Gin router
 	r := gin.New()
 
-	// CORS
 	if opts.EnableCORS {
 		r.Use(cors.Default())
 	}
-
-	// Middleware for structured logging and error handling
 	if opts.EnableLogger {
 		r.Use(gin.Logger())
 	}

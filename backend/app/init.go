@@ -10,7 +10,8 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-// AppConfig agrupa dependencias que podrías querer inyectar
+// AppConfig defines configuration options for initializing the application.
+// Includes toggles for middleware and required secrets.
 type AppConfig struct {
 	JWTSecret      string
 	EnableCORS     bool
@@ -18,6 +19,20 @@ type AppConfig struct {
 	EnableRecovery bool
 }
 
+// InitApp initializes all application components and returns a fully configured Gin router.
+//
+// Components initialized:
+//   - Repositories: DynamoDB implementations for songs, documents, search, and authentication
+//   - Services: business logic layers wired with required dependencies
+//   - Handlers: HTTP controllers connected to services
+//   - Router: sets up routes and middleware with the configured handlers
+//
+// Parameters:
+//   - db: a DynamoDB connection
+//   - cfg: configuration struct for middleware and secrets
+//
+// Returns:
+//   - a *gin.Engine instance ready to serve HTTP requests
 func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 	// Initialize repositories
 	documentRepo := repository.NewDynamoDocumentRepository(db)
