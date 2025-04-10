@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"errors"
+	stdErrors "errors"
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -159,7 +160,7 @@ func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 	err := h.documentService.DeleteDocument(songID, docID)
 	if err != nil {
 		message := "Failed to delete document"
-		if errors.Is(err, errors.ErrResourceNotFound) {
+		if stdErrors.Is(err, errors.ErrResourceNotFound) {
 			message = "Document not found"
 		}
 		errors.HandleAPIError(c, err, message)

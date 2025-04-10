@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"errors"
+	stdErrors "errors"
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -40,11 +41,11 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	if err != nil {
 		message := "Authentication failed"
 		switch {
-		case errors.Is(err, errors.ErrInvalidCredentials):
+		case stdErrors.Is(err, errors.ErrInvalidCredentials):
 			message = "Invalid credentials"
-		case errors.Is(err, errors.ErrTokenGenerationFailed):
+		case stdErrors.Is(err, errors.ErrTokenGenerationFailed):
 			message = "Failed to generate token"
-		case errors.Is(err, errors.ErrInternalServer):
+		case stdErrors.Is(err, errors.ErrInternalServer):
 			message = "Server error during authentication"
 		}
 		errors.HandleAPIError(c, err, message)
