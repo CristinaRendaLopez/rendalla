@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -25,7 +25,7 @@ func NewAWSAuthRepository() *AWSAuthRepository {
 // or defaults to "rendalla/auth_credentials" if not set.
 // Returns:
 //   - (*AuthCredentials, nil) on success
-//   - (nil, utils.ErrInternalServer) if the secret cannot be fetched or parsed
+//   - (nil, errors.ErrInternalServer) if the secret cannot be fetched or parsed
 func (a *AWSAuthRepository) GetAuthCredentials() (*AuthCredentials, error) {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(os.Getenv("AWS_REGION")),
@@ -44,14 +44,14 @@ func (a *AWSAuthRepository) GetAuthCredentials() (*AuthCredentials, error) {
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to retrieve secret from Secrets Manager")
-		return nil, utils.ErrInternalServer
+		return nil, errors.ErrInternalServer
 	}
 
 	var credentials AuthCredentials
 	err = json.Unmarshal([]byte(*result.SecretString), &credentials)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to parse secret JSON")
-		return nil, utils.ErrInternalServer
+		return nil, errors.ErrInternalServer
 	}
 
 	return &credentials, nil

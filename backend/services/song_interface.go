@@ -21,14 +21,14 @@ type SongServiceInterface interface {
 	// GetSongByID retrieves a single song by its unique identifier.
 	// Returns:
 	//   - (*models.Song, nil) if found
-	//   - (nil, utils.ErrNotFound) if the song does not exist
+	//   - (nil, errors.ErrNotFound) if the song does not exist
 	//   - (nil, error) for unexpected errors
 	GetSongByID(songID string) (*models.Song, error)
 
 	// UpdateSong applies partial updates to a song, including optional title normalization.
 	// Returns:
 	//   - nil on success
-	//   - utils.ErrNotFound if the song does not exist
+	//   - errors.ErrNotFound if the song does not exist
 	//   - error if the update fails
 	UpdateSong(songID string, updates map[string]interface{}) error
 

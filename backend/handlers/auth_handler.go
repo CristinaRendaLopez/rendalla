@@ -32,7 +32,7 @@ type LoginRequest struct {
 func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid request data")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid request data")
 		return
 	}
 
@@ -40,14 +40,14 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	if err != nil {
 		message := "Authentication failed"
 		switch {
-		case errors.Is(err, utils.ErrInvalidCredentials):
+		case errors.Is(err, errors.ErrInvalidCredentials):
 			message = "Invalid credentials"
-		case errors.Is(err, utils.ErrTokenGenerationFailed):
+		case errors.Is(err, errors.ErrTokenGenerationFailed):
 			message = "Failed to generate token"
-		case errors.Is(err, utils.ErrInternalServer):
+		case errors.Is(err, errors.ErrInternalServer):
 			message = "Server error during authentication"
 		}
-		utils.HandleAPIError(c, err, message)
+		errors.HandleAPIError(c, err, message)
 		return
 	}
 
@@ -63,13 +63,13 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 func (h *AuthHandler) MeHandler(c *gin.Context) {
 	username, exists := c.Get("username")
 	if !exists {
-		utils.HandleAPIError(c, utils.ErrUnauthorized, "Unauthorized")
+		errors.HandleAPIError(c, errors.ErrUnauthorized, "Unauthorized")
 		return
 	}
 
 	strUsername, ok := username.(string)
 	if !ok || utils.IsEmptyString(strUsername) {
-		utils.HandleAPIError(c, utils.ErrUnauthorized, "Unauthorized")
+		errors.HandleAPIError(c, errors.ErrUnauthorized, "Unauthorized")
 		return
 	}
 

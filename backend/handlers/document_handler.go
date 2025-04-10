@@ -32,7 +32,7 @@ func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 
 	documents, err := h.documentService.GetDocumentsBySongID(songID)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to retrieve documents")
+		errors.HandleAPIError(c, err, "Failed to retrieve documents")
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 
 	document, err := h.documentService.GetDocumentByID(songID, docID)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Document not found")
+		errors.HandleAPIError(c, err, "Document not found")
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var document models.Document
 	if err := c.ShouldBindJSON(&document); err != nil {
 		logrus.WithError(err).Warn("Invalid JSON payload")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
@@ -83,13 +83,13 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	document.SongID = songID
 
 	if err := utils.ValidateDocument(document); err != nil {
-		utils.HandleAPIError(c, err, "Invalid document data")
+		errors.HandleAPIError(c, err, "Invalid document data")
 		return
 	}
 
 	documentID, err := h.documentService.CreateDocument(document)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to create document")
+		errors.HandleAPIError(c, err, "Failed to create document")
 		return
 	}
 
@@ -119,18 +119,18 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 	var docUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
 		logrus.WithError(err).Warn("Invalid JSON payload")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
 	if err := utils.ValidateDocumentUpdate(docUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Invalid document update data")
+		errors.HandleAPIError(c, err, "Invalid document update data")
 		return
 	}
 
 	err := h.documentService.UpdateDocument(songID, docID, docUpdate)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to update document")
+		errors.HandleAPIError(c, err, "Failed to update document")
 		return
 	}
 
@@ -159,10 +159,10 @@ func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
 	err := h.documentService.DeleteDocument(songID, docID)
 	if err != nil {
 		message := "Failed to delete document"
-		if errors.Is(err, utils.ErrResourceNotFound) {
+		if errors.Is(err, errors.ErrResourceNotFound) {
 			message = "Document not found"
 		}
-		utils.HandleAPIError(c, err, message)
+		errors.HandleAPIError(c, err, message)
 		return
 	}
 

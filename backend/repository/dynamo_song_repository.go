@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -30,14 +30,14 @@ func NewDynamoSongRepository(db *dynamo.DB, docRepo DocumentRepository) *DynamoS
 }
 
 // CreateSongWithDocuments stores a new song and its associated documents in a single transactional write.
-// Returns utils.ErrInternalServer on marshalling errors or any write failure.
+// Returns errors.ErrInternalServer on marshalling errors or any write failure.
 func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documents []models.Document) error {
 	var transactItems []*dynamodb.TransactWriteItem
 
 	songItem, err := dynamodbattribute.MarshalMap(song)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to marshal song item")
-		return utils.ErrInternalServer
+		return errors.ErrInternalServer
 	}
 
 	transactItems = append(transactItems, &dynamodb.TransactWriteItem{
@@ -53,7 +53,7 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 			logrus.WithError(err).
 				WithField("doc_index", i).
 				Error("Failed to marshal document item")
-			return utils.ErrInternalServer
+			return errors.ErrInternalServer
 		}
 
 		transactItems = append(transactItems, &dynamodb.TransactWriteItem{
@@ -71,7 +71,7 @@ func (d *DynamoSongRepository) CreateSongWithDocuments(song models.Song, documen
 	_, err = d.db.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to execute transactional write")
-		return utils.HandleDynamoError(err)
+		return errors.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", song.ID).Info("Song and documents created transactionally")
@@ -85,7 +85,7 @@ func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 	err := d.db.Table(bootstrap.SongTableName).Scan().All(&songs)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to retrieve songs")
-		return nil, utils.HandleDynamoError(err)
+		return nil, errors.HandleDynamoError(err)
 	}
 	return songs, nil
 }
@@ -93,14 +93,14 @@ func (d *DynamoSongRepository) GetAllSongs() ([]models.Song, error) {
 // GetSongByID retrieves a song by its ID.
 // Returns:
 //   - (*models.Song, nil) on success
-//   - (nil, utils.ErrNotFound) if the song does not exist
-//   - (nil, utils.ErrInternalServer) for marshalling or database access errors
+//   - (nil, errors.ErrNotFound) if the song does not exist
+//   - (nil, errors.ErrInternalServer) for marshalling or database access errors
 func (d *DynamoSongRepository) GetSongByID(id string) (*models.Song, error) {
 	var song models.Song
 	err := d.db.Table(bootstrap.SongTableName).Get("id", id).One(&song)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to retrieve song")
-		return nil, utils.HandleDynamoError(err)
+		return nil, errors.HandleDynamoError(err)
 	}
 	logrus.WithField("song_id", id).Info("Song retrieved successfully")
 	return &song, nil
@@ -120,7 +120,7 @@ func (d *DynamoSongRepository) UpdateSong(id string, updates map[string]interfac
 	err := update.Run()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"song_id": id, "error": err}).Error("Failed to update song")
-		return utils.HandleDynamoError(err)
+		return errors.HandleDynamoError(err)
 	}
 	logrus.WithField("song_id", id).Info("Song updated successfully")
 	return nil
@@ -128,8 +128,8 @@ func (d *DynamoSongRepository) UpdateSong(id string, updates map[string]interfac
 
 // DeleteSongWithDocuments removes a song and all of its associated documents in a single transaction.
 // Returns:
-//   - utils.ErrNotFound if the song does not exist
-//   - utils.ErrInternalServer if deletion fails at any point
+//   - errors.ErrNotFound if the song does not exist
+//   - errors.ErrInternalServer if deletion fails at any point
 func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	_, err := d.GetSongByID(songID)
 	if err != nil {
@@ -138,9 +138,9 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	}
 
 	documents, err := d.docRepo.GetDocumentsBySongID(songID)
-	if err != nil && !utils.IsDynamoNotFoundError(err) {
+	if err != nil && !errors.IsDynamoNotFoundError(err) {
 		logrus.WithField("song_id", songID).WithError(err).Error("Failed to fetch documents before deletion")
-		return utils.HandleDynamoError(err)
+		return errors.HandleDynamoError(err)
 	}
 
 	var transactItems []*dynamodb.TransactWriteItem
@@ -170,7 +170,7 @@ func (d *DynamoSongRepository) DeleteSongWithDocuments(songID string) error {
 	_, err = d.db.Client().TransactWriteItems(input)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete song and documents")
-		return utils.HandleDynamoError(err)
+		return errors.HandleDynamoError(err)
 	}
 
 	logrus.WithField("song_id", songID).Info("Song and associated documents deleted successfully")

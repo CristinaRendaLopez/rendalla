@@ -3,10 +3,10 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -41,13 +41,13 @@ func TestGetAllSongs_Success(t *testing.T) {
 func TestGetAllSongs_Error(t *testing.T) {
 	service, songRepo, _, _, _ := setupSongServiceTest()
 
-	songRepo.On("GetAllSongs").Return([]models.Song{}, utils.ErrInternalServer)
+	songRepo.On("GetAllSongs").Return([]models.Song{}, errors.ErrInternalServer)
 
 	songs, err := service.GetAllSongs()
 
 	assert.Error(t, err)
 	assert.Empty(t, songs)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 	songRepo.AssertExpectations(t)
 }
 
@@ -69,13 +69,13 @@ func TestGetSongByID_Success(t *testing.T) {
 func TestGetSongByID_NotFound(t *testing.T) {
 	service, songRepo, _, _, _ := setupSongServiceTest()
 
-	songRepo.On("GetSongByID", "999").Return(nil, utils.ErrResourceNotFound)
+	songRepo.On("GetSongByID", "999").Return(nil, errors.ErrResourceNotFound)
 
 	song, err := service.GetSongByID("999")
 
 	assert.Error(t, err)
 	assert.Nil(t, song)
-	assert.ErrorIs(t, err, utils.ErrResourceNotFound)
+	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 	songRepo.AssertExpectations(t)
 }
 
@@ -126,13 +126,13 @@ func TestCreateSongWithDocuments_Error(t *testing.T) {
 	idGen.On("NewID").Return("song-123")
 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(utils.ErrInternalServer)
+	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrInternalServer)
 
 	songID, err := service.CreateSongWithDocuments(song, nil)
 
 	assert.Error(t, err)
 	assert.Empty(t, songID)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 	songRepo.AssertExpectations(t)
 }
 
@@ -158,13 +158,13 @@ func TestCreateSongWithDocuments_DocumentCreationError(t *testing.T) {
 
 	idGen.On("NewID").Return("doc-1").Once()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(utils.ErrOperationNotAllowed)
+	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrOperationNotAllowed)
 
 	songID, err := service.CreateSongWithDocuments(song, documents)
 
 	assert.Error(t, err)
 	assert.Empty(t, songID)
-	assert.ErrorIs(t, err, utils.ErrOperationNotAllowed)
+	assert.ErrorIs(t, err, errors.ErrOperationNotAllowed)
 
 	songRepo.AssertExpectations(t)
 	docRepo.AssertExpectations(t)
@@ -206,12 +206,12 @@ func TestUpdateSong_Error(t *testing.T) {
 
 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("GetSongByID", songID).Return(nil, utils.ErrResourceNotFound)
+	songRepo.On("GetSongByID", songID).Return(nil, errors.ErrResourceNotFound)
 
 	err := service.UpdateSong("999", updates)
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrResourceNotFound)
+	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 	songRepo.AssertExpectations(t)
 	timeProv.AssertExpectations(t)
 }
@@ -230,11 +230,11 @@ func TestDeleteSongWithDocuments_Success(t *testing.T) {
 func TestDeleteSongWithDocuments_Error(t *testing.T) {
 	service, songRepo, _, _, _ := setupSongServiceTest()
 
-	songRepo.On("DeleteSongWithDocuments", "999").Return(utils.ErrResourceNotFound)
+	songRepo.On("DeleteSongWithDocuments", "999").Return(errors.ErrResourceNotFound)
 
 	err := service.DeleteSongWithDocuments("999")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrResourceNotFound)
+	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 	songRepo.AssertExpectations(t)
 }

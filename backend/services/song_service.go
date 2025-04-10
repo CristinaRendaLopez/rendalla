@@ -1,6 +1,7 @@
 package services
 
 import (
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -73,7 +74,7 @@ func (s *SongService) GetAllSongs() ([]models.Song, error) {
 // GetSongByID retrieves a song by its unique identifier.
 // Returns:
 //   - (*models.Song, nil) if found
-//   - (nil, utils.ErrNotFound) if the song does not exist
+//   - (nil, errors.ErrNotFound) if the song does not exist
 //   - (nil, error) for unexpected failures
 func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 	return s.songRepo.GetSongByID(id)
@@ -83,7 +84,7 @@ func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 // It also updates the 'updated_at' timestamp.
 // Returns:
 //   - nil on success
-//   - utils.ErrResourceNotFound if the song does not exist
+//   - errors.ErrResourceNotFound if the song does not exist
 //   - error if the update operation fails
 func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
 	song, err := s.songRepo.GetSongByID(id)
@@ -92,7 +93,7 @@ func (s *SongService) UpdateSong(id string, updates map[string]interface{}) erro
 	}
 
 	if song == nil {
-		return utils.ErrResourceNotFound
+		return errors.ErrResourceNotFound
 	}
 
 	updates["updated_at"] = s.timeProvider.Now()

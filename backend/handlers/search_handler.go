@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -30,7 +31,7 @@ func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
 
 	songs, nextKey, err := h.searchService.ListSongs(title, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error listing songs")
+		errors.HandleAPIError(c, err, "Error listing songs")
 		return
 	}
 
@@ -60,7 +61,7 @@ func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
 
 	documents, nextKey, err := h.searchService.ListDocuments(title, instrument, docType, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error listing documents")
+		errors.HandleAPIError(c, err, "Error listing documents")
 		return
 	}
 

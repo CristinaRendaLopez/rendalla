@@ -14,7 +14,7 @@ type DocumentServiceInterface interface {
 	// GetDocumentByID retrieves a single document by song ID and document ID.
 	// Returns:
 	//   - (*models.Document, nil) if found
-	//   - (nil, utils.ErrNotFound) if the document does not exist
+	//   - (nil, errors.ErrNotFound) if the document does not exist
 	//   - (nil, error) for unexpected errors
 	GetDocumentByID(songID string, docID string) (*models.Document, error)
 

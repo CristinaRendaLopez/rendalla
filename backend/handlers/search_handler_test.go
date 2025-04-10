@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
@@ -143,7 +144,7 @@ func TestListSongsHandler_NextTokenPresent(t *testing.T) {
 func TestListSongsHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
-	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{}, nil, utils.ErrInternalServer)
+	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{}, nil, errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
 	c.Request.URL.RawQuery = "title=love"
@@ -284,7 +285,7 @@ func TestListDocumentsHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSearchHandlerTest()
 
 	mockService.On("ListDocuments", "queen", "", "", "", "", 10, mock.Anything).
-		Return([]models.Document{}, nil, utils.ErrInternalServer)
+		Return([]models.Document{}, nil, errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=queen", nil)
 	c.Request.URL.RawQuery = "title=queen"
@@ -292,6 +293,6 @@ func TestListDocumentsHandler_ServiceError(t *testing.T) {
 	handler.ListDocumentsHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.ErrorIs(t, utils.ErrInternalServer, utils.ErrInternalServer)
+	assert.ErrorIs(t, errors.ErrInternalServer, errors.ErrInternalServer)
 	mockService.AssertExpectations(t)
 }

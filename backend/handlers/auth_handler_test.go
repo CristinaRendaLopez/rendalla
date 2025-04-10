@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -51,7 +52,7 @@ func TestLoginHandler_MissingFields(t *testing.T) {
 func TestLoginHandler_InvalidCredentials(t *testing.T) {
 	handler, mockService := setupAuthHandlerTest()
 
-	mockService.On("AuthenticateUser", "admin", "wrongpass").Return("", utils.ErrInvalidCredentials)
+	mockService.On("AuthenticateUser", "admin", "wrongpass").Return("", errors.ErrInvalidCredentials)
 
 	invalidLogin := `{"username": "admin", "password": "wrongpass"}`
 	c, w := utils.CreateTestContext(http.MethodPost, "/auth/login", strings.NewReader(invalidLogin))

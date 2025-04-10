@@ -3,6 +3,7 @@ package utils
 import (
 	"strings"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +13,7 @@ import (
 func RequireParam(c *gin.Context, name string) (string, bool) {
 	val := strings.TrimSpace(c.Param(name))
 	if val == "" {
-		HandleAPIError(c, ErrBadRequest, "Missing "+name)
+		errors.HandleAPIError(c, errors.ErrBadRequest, "Missing "+name)
 		return "", false
 	}
 	return val, true
@@ -23,7 +24,7 @@ func RequireParam(c *gin.Context, name string) (string, bool) {
 func RequireQuery(c *gin.Context, key string) (string, bool) {
 	val := strings.TrimSpace(c.Query(key))
 	if val == "" {
-		HandleAPIError(c, ErrValidationFailed, "Missing "+key+" parameter")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing "+key+" parameter")
 		return "", false
 	}
 	return val, true
@@ -37,7 +38,7 @@ func ValidateNonEmptyStringField(update map[string]interface{}, key string) erro
 	}
 	strVal, valid := val.(string)
 	if !valid || strings.TrimSpace(strVal) == "" {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	return nil
 }
@@ -51,13 +52,13 @@ func ValidateNonEmptyStringArrayField(update map[string]interface{}, key string)
 
 	array, ok := val.([]interface{})
 	if !ok || len(array) == 0 {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 
 	for _, item := range array {
 		str, valid := item.(string)
 		if !valid || strings.TrimSpace(str) == "" {
-			return ErrValidationFailed
+			return errors.ErrValidationFailed
 		}
 	}
 
@@ -70,17 +71,17 @@ func IsEmptyString(val string) bool {
 
 func ValidateSong(song models.Song) error {
 	if IsEmptyString(song.Title) || len(song.Title) < 3 {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	if IsEmptyString(song.Author) {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	if len(song.Genres) == 0 {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	for _, g := range song.Genres {
 		if len(g) < 3 {
-			return ErrValidationFailed
+			return errors.ErrValidationFailed
 		}
 	}
 	return nil
@@ -88,17 +89,17 @@ func ValidateSong(song models.Song) error {
 
 func ValidateDocument(doc models.Document) error {
 	if IsEmptyString(doc.Type) {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	if IsEmptyString(doc.PDFURL) {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	if len(doc.Instrument) == 0 {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	for _, inst := range doc.Instrument {
 		if IsEmptyString(inst) {
-			return ErrValidationFailed
+			return errors.ErrValidationFailed
 		}
 	}
 	return nil
@@ -133,7 +134,7 @@ func ValidateDocumentUpdate(update map[string]interface{}) error {
 
 func ValidateSongUpdate(update map[string]interface{}) error {
 	if len(update) == 0 {
-		return ErrValidationFailed
+		return errors.ErrValidationFailed
 	}
 	if err := ValidateNonEmptyStringField(update, "title"); err != nil {
 		return err

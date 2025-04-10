@@ -61,7 +61,7 @@ func (s *DocumentService) GetDocumentsBySongID(songID string) ([]models.Document
 // GetDocumentByID retrieves a document by its song ID and document ID.
 // Returns:
 //   - (*models.Document, nil) if found
-//   - (nil, utils.ErrNotFound) if not found
+//   - (nil, errors.ErrNotFound) if not found
 //   - (nil, error) if the retrieval fails
 func (s *DocumentService) GetDocumentByID(songID string, docID string) (*models.Document, error) {
 	return s.repo.GetDocumentByID(songID, docID)

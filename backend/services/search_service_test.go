@@ -3,11 +3,11 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -195,14 +195,14 @@ func TestSearchService_ListSongs_RepositoryError(t *testing.T) {
 
 	mockSearchRepo.
 		On("ListSongs", "queen", "created_at", "desc", 10, mock.Anything).
-		Return([]models.Song{}, emptyKey, utils.ErrInternalServer)
+		Return([]models.Song{}, emptyKey, errors.ErrInternalServer)
 
 	var next repository.PagingKey = nil
 	result, _, err := service.ListSongs("queen", "created_at", "desc", 10, next)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 	mockSearchRepo.AssertExpectations(t)
 }
 
@@ -342,13 +342,13 @@ func TestSearchService_ListDocuments_RepositoryError(t *testing.T) {
 
 	mockSearchRepo.
 		On("ListDocuments", "queen", "", "", "created_at", "desc", 10, mock.Anything).
-		Return([]models.Document{}, emptyKey, utils.ErrInternalServer)
+		Return([]models.Document{}, emptyKey, errors.ErrInternalServer)
 
 	var next repository.PagingKey = nil
 	result, _, err := service.ListDocuments("queen", "", "", "created_at", "desc", 10, next)
 
 	assert.Error(t, err)
 	assert.Empty(t, result)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 	mockSearchRepo.AssertExpectations(t)
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
@@ -64,7 +65,7 @@ func TestGetSongByIDHandler_Success(t *testing.T) {
 
 func TestGetSongByIDHandler_NotFound(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("GetSongByID", "999").Return((*models.Song)(nil), utils.ErrResourceNotFound)
+	mockService.On("GetSongByID", "999").Return((*models.Song)(nil), errors.ErrResourceNotFound)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/999", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})
@@ -116,7 +117,7 @@ func TestCreateSongHandler_InvalidDocument(t *testing.T) {
 
 	mockService.
 		On("CreateSongWithDocuments", mock.Anything, mock.Anything).
-		Return("", utils.ErrValidationFailed)
+		Return("", errors.ErrValidationFailed)
 
 	data := `{"title": "Title", "author": "Auth", "genres": ["Pop"], "documents":[{}]}`
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
@@ -132,7 +133,7 @@ func TestCreateSongHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
 
 	data := `{"title": "Imagine", "author": "John Lennon", "genres": ["Rock"]}`
-	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", utils.ErrInternalServer)
+	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -172,7 +173,7 @@ func TestUpdateSongHandler_MissingID(t *testing.T) {
 
 func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
+	mockService.On("UpdateSong", "1", mock.Anything).Return(errors.ErrValidationFailed)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title": 123}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -185,7 +186,7 @@ func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
 
 func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
+	mockService.On("UpdateSong", "1", mock.Anything).Return(errors.ErrValidationFailed)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -198,7 +199,7 @@ func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
 
 func TestUpdateSongHandler_InvalidFields(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("UpdateSong", "1", mock.Anything).Return(utils.ErrValidationFailed)
+	mockService.On("UpdateSong", "1", mock.Anything).Return(errors.ErrValidationFailed)
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":""}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
@@ -226,7 +227,7 @@ func TestUpdateSongHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
 
 	update := map[string]interface{}{"title": "New Title"}
-	mockService.On("UpdateSong", "1", update).Return(utils.ErrInternalServer)
+	mockService.On("UpdateSong", "1", update).Return(errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -253,7 +254,7 @@ func TestDeleteSongWithDocumentsHandler_Success(t *testing.T) {
 
 func TestDeleteSongWithDocumentsHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupSongHandlerTest()
-	mockService.On("DeleteSongWithDocuments", "999").Return(utils.ErrInternalServer)
+	mockService.On("DeleteSongWithDocuments", "999").Return(errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/999", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})

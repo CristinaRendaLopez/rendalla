@@ -1,6 +1,7 @@
 package services
 
 import (
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
@@ -36,8 +37,8 @@ func NewAuthService(
 // If valid, it generates a signed JWT token valid for 72 hours.
 // Returns:
 //   - the signed JWT token string on success
-//   - utils.ErrInvalidCredentials if the credentials are incorrect
-//   - utils.ErrTokenGenerationFailed if token signing fails
+//   - errors.ErrInvalidCredentials if the credentials are incorrect
+//   - errors.ErrTokenGenerationFailed if token signing fails
 //   - other repository errors if credential retrieval fails
 func (s *AuthService) AuthenticateUser(username, password string) (string, error) {
 	creds, err := s.repo.GetAuthCredentials()
@@ -46,11 +47,11 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 	}
 
 	if username != creds.Username {
-		return "", utils.ErrInvalidCredentials
+		return "", errors.ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(creds.Password), []byte(password)); err != nil {
-		return "", utils.ErrInvalidCredentials
+		return "", errors.ErrInvalidCredentials
 	}
 
 	exp := s.timeProvider.NowUnix() + 72*3600
@@ -62,7 +63,7 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 	token, err := s.tokenGenerator.GenerateToken(claims)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to generate JWT token")
-		return "", utils.ErrTokenGenerationFailed
+		return "", errors.ErrTokenGenerationFailed
 	}
 
 	return token, nil
@@ -71,7 +72,7 @@ func (s *AuthService) AuthenticateUser(username, password string) (string, error
 // GetAuthCredentials retrieves the current admin credentials from the repository.
 // Returns:
 //   - the stored credentials on success
-//   - utils.ErrInternalServer if retrieval fails
+//   - errors.ErrInternalServer if retrieval fails
 func (s *AuthService) GetAuthCredentials() (*repository.AuthCredentials, error) {
 	return s.repo.GetAuthCredentials()
 }

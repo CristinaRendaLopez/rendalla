@@ -3,10 +3,10 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -47,13 +47,13 @@ func TestGetDocumentByID_Success(t *testing.T) {
 func TestGetDocumentByID_NotFound(t *testing.T) {
 	service, docRepo, _, _, _ := setupDocumentServiceTest()
 
-	docRepo.On("GetDocumentByID", "song1", "unknown").Return(nil, utils.ErrResourceNotFound)
+	docRepo.On("GetDocumentByID", "song1", "unknown").Return(nil, errors.ErrResourceNotFound)
 
 	doc, err := service.GetDocumentByID("song1", "unknown")
 
 	assert.Error(t, err)
 	assert.Nil(t, doc)
-	assert.ErrorIs(t, err, utils.ErrResourceNotFound)
+	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 
 	docRepo.AssertExpectations(t)
 }
@@ -124,12 +124,12 @@ func TestCreateDocument_Error(t *testing.T) {
 	idGen.On("NewID").Return("doc123")
 	timeProv.On("Now").Return("2023-03-21T00:00:00Z").Maybe()
 
-	docRepo.On("CreateDocument", mock.Anything).Return(utils.ErrOperationNotAllowed)
+	docRepo.On("CreateDocument", mock.Anything).Return(errors.ErrOperationNotAllowed)
 
 	_, err := service.CreateDocument(doc)
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrOperationNotAllowed)
+	assert.ErrorIs(t, err, errors.ErrOperationNotAllowed)
 
 	idGen.AssertExpectations(t)
 	timeProv.AssertExpectations(t)
@@ -173,12 +173,12 @@ func TestUpdateDocument_Error(t *testing.T) {
 	}, nil)
 
 	timeProv.On("Now").Return("2023-03-21T00:00:00Z")
-	docRepo.On("UpdateDocument", "song1", "doc1", mock.Anything).Return(utils.ErrInternalServer)
+	docRepo.On("UpdateDocument", "song1", "doc1", mock.Anything).Return(errors.ErrInternalServer)
 
 	err := service.UpdateDocument("song1", "doc1", updates)
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 
 	timeProv.AssertExpectations(t)
 	docRepo.AssertExpectations(t)
@@ -199,12 +199,12 @@ func TestDeleteDocument_Success(t *testing.T) {
 func TestDeleteDocument_Error(t *testing.T) {
 	service, docRepo, _, _, _ := setupDocumentServiceTest()
 
-	docRepo.On("DeleteDocument", "song1", "unknown").Return(utils.ErrResourceNotFound)
+	docRepo.On("DeleteDocument", "song1", "unknown").Return(errors.ErrResourceNotFound)
 
 	err := service.DeleteDocument("song1", "unknown")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrResourceNotFound)
+	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 
 	docRepo.AssertExpectations(t)
 }

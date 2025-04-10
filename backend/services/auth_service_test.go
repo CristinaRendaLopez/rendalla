@@ -3,10 +3,10 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
@@ -50,7 +50,7 @@ func TestAuthenticateUser_InvalidUsername(t *testing.T) {
 	token, err := service.AuthenticateUser("wrong", "secret")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrInvalidCredentials)
+	assert.ErrorIs(t, err, errors.ErrInvalidCredentials)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -67,7 +67,7 @@ func TestAuthenticateUser_InvalidPassword(t *testing.T) {
 	token, err := service.AuthenticateUser("admin", "wrongpass")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrInvalidCredentials)
+	assert.ErrorIs(t, err, errors.ErrInvalidCredentials)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -76,12 +76,12 @@ func TestAuthenticateUser_InvalidPassword(t *testing.T) {
 func TestAuthenticateUser_RepoError(t *testing.T) {
 	service, authRepo, _, _ := setupAuthServiceTest()
 
-	authRepo.On("GetAuthCredentials").Return(nil, utils.ErrInternalServer)
+	authRepo.On("GetAuthCredentials").Return(nil, errors.ErrInternalServer)
 
 	token, err := service.AuthenticateUser("admin", "secret")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrInternalServer)
+	assert.ErrorIs(t, err, errors.ErrInternalServer)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)
@@ -96,12 +96,12 @@ func TestAuthenticateUser_TokenGenerationError(t *testing.T) {
 	authRepo.On("GetAuthCredentials").Return(creds, nil)
 	clock.On("NowUnix").Return(1000)
 	claims := jwt.MapClaims{"username": "admin", "exp": int64(1000 + 72*3600)}
-	tokenGen.On("GenerateToken", claims).Return("", utils.ErrTokenGenerationFailed)
+	tokenGen.On("GenerateToken", claims).Return("", errors.ErrTokenGenerationFailed)
 
 	token, err := service.AuthenticateUser("admin", "secret")
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, utils.ErrTokenGenerationFailed)
+	assert.ErrorIs(t, err, errors.ErrTokenGenerationFailed)
 	assert.Empty(t, token)
 
 	authRepo.AssertExpectations(t)

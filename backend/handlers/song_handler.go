@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
@@ -34,7 +35,7 @@ type SongRequest struct {
 func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 	songs, err := h.songService.GetAllSongs()
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to retrieve songs")
+		errors.HandleAPIError(c, err, "Failed to retrieve songs")
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 
 	song, err := h.songService.GetSongByID(id)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Song not found")
+		errors.HandleAPIError(c, err, "Song not found")
 		return
 	}
 
@@ -66,7 +67,7 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 	var req SongRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logrus.WithError(err).Warn("Invalid JSON payload")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
@@ -78,7 +79,7 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 
 	songID, err := h.songService.CreateSongWithDocuments(song, req.Documents)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to create song")
+		errors.HandleAPIError(c, err, "Failed to create song")
 		return
 	}
 
@@ -100,12 +101,12 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	var songUpdate map[string]interface{}
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
 		logrus.WithError(err).Warn("Invalid JSON payload")
-		utils.HandleAPIError(c, utils.ErrValidationFailed, "Invalid JSON payload")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
 	if err := h.songService.UpdateSong(id, songUpdate); err != nil {
-		utils.HandleAPIError(c, err, "Failed to update song")
+		errors.HandleAPIError(c, err, "Failed to update song")
 		return
 	}
 
@@ -127,7 +128,7 @@ func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
 
 	err := h.songService.DeleteSongWithDocuments(id)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Failed to delete song")
+		errors.HandleAPIError(c, err, "Failed to delete song")
 		return
 	}
 
