@@ -41,6 +41,7 @@ func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
 		return
 	}
 
@@ -93,6 +94,7 @@ func (h *SongHandler) CreateSongHandler(c *gin.Context) {
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
 		return
 	}
 
@@ -120,6 +122,7 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
 	id, ok := utils.RequireParam(c, "id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
 		return
 	}
 
