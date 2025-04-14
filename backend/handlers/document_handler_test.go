@@ -36,7 +36,7 @@ func TestGetAllDocumentsBySongIDHandler_Success(t *testing.T) {
 	mockService.On("GetDocumentsBySongID", "1").Return(documents, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.GetAllDocumentsBySongIDHandler(c)
 
@@ -51,7 +51,7 @@ func TestGetAllDocumentsBySongIDHandler_Service_Error(t *testing.T) {
 	mockService.On("GetDocumentsBySongID", "1").Return([]dto.DocumentResponseItem{}, errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.GetAllDocumentsBySongIDHandler(c)
 
@@ -81,7 +81,7 @@ func TestGetDocumentByIDHandler_Success(t *testing.T) {
 	mockService.On("GetDocumentByID", "queen-001", "doc1").Return(document, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.GetDocumentByIDHandler(c)
@@ -106,7 +106,7 @@ func TestGetDocumentByIDHandler_Service_Error(t *testing.T) {
 	mockService.On("GetDocumentByID", "queen-001", "doc1").Return(dto.DocumentResponseItem{}, errors.ErrResourceNotFound)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.GetDocumentByIDHandler(c)
@@ -128,7 +128,7 @@ func TestCreateDocumentHandler_Success(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.CreateDocumentHandler(c)
 
@@ -155,7 +155,7 @@ func TestCreateDocumentHandler_InvalidInput(t *testing.T) {
 	invalidDoc := `{"type": "", "instrument": [], "pdf_url": ""}`
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(invalidDoc))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.CreateDocumentHandler(c)
 
@@ -174,7 +174,7 @@ func TestCreateDocumentHandler_ServiceError(t *testing.T) {
 	mockService.On("CreateDocument", mock.Anything).Return("", errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.CreateDocumentHandler(c)
 
@@ -189,7 +189,7 @@ func TestCreateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(badJSON))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.CreateDocumentHandler(c)
 
@@ -206,7 +206,7 @@ func TestUpdateDocumentHandler_Success(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "tablature"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
 
 	handler.UpdateDocumentHandler(c)
@@ -234,7 +234,7 @@ func TestUpdateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/1", strings.NewReader(badJSON))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "1"})
 
 	handler.UpdateDocumentHandler(c)
@@ -252,7 +252,7 @@ func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "score"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
 
 	handler.UpdateDocumentHandler(c)
@@ -267,7 +267,7 @@ func TestDeleteDocumentHandler_Success(t *testing.T) {
 	mockService.On("DeleteDocument", "queen-001", "doc1").Return(nil)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/queen-001/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.DeleteDocumentHandler(c)
@@ -291,7 +291,7 @@ func TestDeleteDocumentHandler_Service_Error(t *testing.T) {
 	mockService.On("DeleteDocument", "queen-001", "doc1").Return(errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/queen-001/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "queen-001"})
 	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc1"})
 
 	handler.DeleteDocumentHandler(c)

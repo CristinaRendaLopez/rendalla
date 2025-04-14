@@ -59,10 +59,10 @@ func SetupRouter(
 	public := r.Group("/")
 	{
 		public.GET("/songs", songHandler.GetAllSongsHandler)
-		public.GET("/songs/:id", songHandler.GetSongByIDHandler)
+		public.GET("/songs/:song_id", songHandler.GetSongByIDHandler)
 
-		public.GET("/songs/:id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
-		public.GET("/songs/:id/documents/:doc_id", documentHandler.GetDocumentByIDHandler)
+		public.GET("/songs/:song_id/documents", documentHandler.GetAllDocumentsBySongIDHandler)
+		public.GET("/songs/:song_id/documents/:doc_id", documentHandler.GetDocumentByIDHandler)
 
 		public.GET("/songs/search", searchHandler.ListSongsHandler)
 		public.GET("/documents/search", searchHandler.ListDocumentsHandler)
@@ -75,12 +75,12 @@ func SetupRouter(
 	auth.Use(middleware.JWTAuthMiddleware())
 	{
 		auth.POST("/songs", songHandler.CreateSongHandler)
-		auth.PUT("/songs/:id", songHandler.UpdateSongHandler)
-		auth.DELETE("/songs/:id", songHandler.DeleteSongWithDocumentsHandler)
+		auth.PUT("/songs/:song_id", songHandler.UpdateSongHandler)
+		auth.DELETE("/songs/:song_id", songHandler.DeleteSongWithDocumentsHandler)
 
-		auth.POST("/songs/:id/documents", documentHandler.CreateDocumentHandler)
-		auth.PUT("/songs/:id/documents/:doc_id", documentHandler.UpdateDocumentHandler)
-		auth.DELETE("/songs/:id/documents/:doc_id", documentHandler.DeleteDocumentHandler)
+		auth.POST("/songs/:song_id/documents", documentHandler.CreateDocumentHandler)
+		auth.PUT("/songs/:song_id/documents/:doc_id", documentHandler.UpdateDocumentHandler)
+		auth.DELETE("/songs/:song_id/documents/:doc_id", documentHandler.DeleteDocumentHandler)
 
 		auth.GET("/auth/me", authHandler.MeHandler)
 	}

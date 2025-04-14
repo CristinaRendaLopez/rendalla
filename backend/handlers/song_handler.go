@@ -58,12 +58,12 @@ func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": songs})
 }
 
-// GetSongByIDHandler handles GET /songs/:id.
+// GetSongByIDHandler handles GET /songs/:song_id.
 // Retrieves a song by its unique ID.
 func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
-	id, ok := utils.RequireParam(c, "id")
+	id, ok := utils.RequireParam(c, "song_id")
 	if !ok {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
@@ -81,12 +81,12 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": song})
 }
 
-// UpdateSongHandler handles PUT /songs/:id.
+// UpdateSongHandler handles PUT /songs/:song_id.
 // Delegates validation and update logic to the service layer.
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
-	id, ok := utils.RequireParam(c, "id")
+	id, ok := utils.RequireParam(c, "song_id")
 	if !ok {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
@@ -109,12 +109,12 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully"})
 }
 
-// DeleteSongWithDocumentsHandler handles DELETE /songs/:id.
+// DeleteSongWithDocumentsHandler handles DELETE /songs/:song_id.
 // Deletes the song and all documents linked to it.
 func (h *SongHandler) DeleteSongWithDocumentsHandler(c *gin.Context) {
-	id, ok := utils.RequireParam(c, "id")
+	id, ok := utils.RequireParam(c, "song_id")
 	if !ok {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: id")
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 

@@ -23,7 +23,7 @@ func NewDocumentHandler(documentService services.DocumentServiceInterface) *Docu
 	return &DocumentHandler{documentService: documentService}
 }
 
-// CreateDocumentHandler handles POST /songs/:id/documents.
+// CreateDocumentHandler handles POST /songs/:song_id/documents.
 // Validates the request and creates a new document linked to a song.
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	var req dto.CreateDocumentRequest
@@ -32,8 +32,9 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	songID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
@@ -61,11 +62,12 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	})
 }
 
-// GetAllDocumentsBySongIDHandler handles GET /songs/:id/documents.
+// GetAllDocumentsBySongIDHandler handles GET /songs/:song_id/documents.
 // Retrieves all documents associated with a specific song.
 func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
-	songID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
@@ -79,16 +81,18 @@ func (h *DocumentHandler) GetAllDocumentsBySongIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": documents})
 }
 
-// GetDocumentByIDHandler handles GET /songs/:id/documents/:doc_id.
+// GetDocumentByIDHandler handles GET /songs/:song_id/documents/:doc_id.
 // Retrieves a single document by song ID and document ID.
 func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
-	songID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
 	docID, ok := utils.RequireParam(c, "doc_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: doc_id")
 		return
 	}
 
@@ -109,15 +113,17 @@ func (h *DocumentHandler) GetDocumentByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": document})
 }
 
-// UpdateDocumentHandler handles PUT /songs/:id/documents/:doc_id.
+// UpdateDocumentHandler handles PUT /songs/:song_id/documents/:doc_id.
 // Applies updates to a specific document.
 func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
-	songID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 	docID, ok := utils.RequireParam(c, "doc_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: doc_id")
 		return
 	}
 
@@ -147,16 +153,18 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Document updated successfully"})
 }
 
-// DeleteDocumentHandler handles DELETE /songs/:id/documents/:doc_id.
+// DeleteDocumentHandler handles DELETE /songs/:song_id/documents/:doc_id.
 // Deletes a specific document linked to a song.
 func (h *DocumentHandler) DeleteDocumentHandler(c *gin.Context) {
-	songID, ok := utils.RequireParam(c, "id")
+	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
 		return
 	}
 
 	docID, ok := utils.RequireParam(c, "doc_id")
 	if !ok {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: doc_id")
 		return
 	}
 

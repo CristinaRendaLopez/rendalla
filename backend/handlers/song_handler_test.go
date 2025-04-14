@@ -132,7 +132,7 @@ func TestGetAllSongsHandler_Service_Error(t *testing.T) {
 // 	mockService.On("GetSongByID", "1").Return(&models.Song{ID: "1", Title: "Song"}, nil)
 
 // 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1", nil)
-// 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+// 	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 // 	handler.GetSongByIDHandler(c)
 
@@ -146,7 +146,7 @@ func TestGetAllSongsHandler_Service_Error(t *testing.T) {
 // 	mockService.On("GetSongByID", "999").Return((*models.Song)(nil), errors.ErrResourceNotFound)
 
 // 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/999", nil)
-// 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})
+// 	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "999"})
 
 // 	handler.GetSongByIDHandler(c)
 
@@ -174,7 +174,7 @@ func TestUpdateSongHandler_Success(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -199,7 +199,7 @@ func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title": 123}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -212,7 +212,7 @@ func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -224,7 +224,7 @@ func TestUpdateSongHandler_InvalidFields(t *testing.T) {
 	mockService.On("UpdateSong", "1", mock.Anything).Return(errors.ErrValidationFailed)
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":""}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -238,7 +238,7 @@ func TestUpdateSongHandler_InvalidJSONBinding(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(invalidJSON))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -256,7 +256,7 @@ func TestUpdateSongHandler_ServiceError(t *testing.T) {
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.UpdateSongHandler(c)
 
@@ -269,7 +269,7 @@ func TestDeleteSongWithDocumentsHandler_Success(t *testing.T) {
 	mockService.On("DeleteSongWithDocuments", "1").Return(nil)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "1"})
 
 	handler.DeleteSongWithDocumentsHandler(c)
 
@@ -282,7 +282,7 @@ func TestDeleteSongWithDocumentsHandler_Service_Error(t *testing.T) {
 	mockService.On("DeleteSongWithDocuments", "999").Return(errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/999", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})
+	c.Params = append(c.Params, gin.Param{Key: "song_id", Value: "999"})
 
 	handler.DeleteSongWithDocumentsHandler(c)
 
