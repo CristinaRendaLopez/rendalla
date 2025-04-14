@@ -8,6 +8,7 @@ import (
 
 func ToDocumentModel(dto CreateDocumentRequest) models.Document {
 	return models.Document{
+		SongID:     dto.SongID,
 		Type:       dto.Type,
 		Instrument: dto.Instrument,
 		PDFURL:     dto.PDFURL,

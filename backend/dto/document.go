@@ -5,6 +5,7 @@ type CreateDocumentRequest struct {
 	Instrument []string `json:"instrument" binding:"required,min=1,dive,min=1"`
 	PDFURL     string   `json:"pdf_url" binding:"required,url"`
 	AudioURL   string   `json:"audio_url,omitempty"`
+	SongID     string   `json:"-"`
 }
 
 type UpdateDocumentRequest struct {

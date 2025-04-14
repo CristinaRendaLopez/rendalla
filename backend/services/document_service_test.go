@@ -3,6 +3,7 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
@@ -22,7 +23,7 @@ func setupDocumentServiceTest() (*services.DocumentService, *mocks.MockDocumentR
 func TestGetDocumentByID_Success(t *testing.T) {
 	service, docRepo, _, _, _ := setupDocumentServiceTest()
 
-	expectedDoc := &models.Document{
+	modelDoc := &models.Document{
 		ID:         "doc1",
 		SongID:     "song1",
 		Type:       "sheet_music",
@@ -32,7 +33,18 @@ func TestGetDocumentByID_Success(t *testing.T) {
 		UpdatedAt:  "2023-03-21T00:00:00Z",
 	}
 
-	docRepo.On("GetDocumentByID", "song1", "doc1").Return(expectedDoc, nil)
+	expectedDoc := dto.DocumentResponseItem{
+		ID:         "doc1",
+		SongID:     "song1",
+		Type:       "sheet_music",
+		Instrument: []string{"Guitar"},
+		PDFURL:     "https://s3.amazonaws.com/queen/wewillrockyou.pdf",
+		AudioURL:   "",
+		CreatedAt:  "2023-03-21T00:00:00Z",
+		UpdatedAt:  "2023-03-21T00:00:00Z",
+	}
+
+	docRepo.On("GetDocumentByID", "song1", "doc1").Return(modelDoc, nil)
 
 	doc, err := service.GetDocumentByID("song1", "doc1")
 
@@ -48,10 +60,9 @@ func TestGetDocumentByID_NotFound(t *testing.T) {
 
 	docRepo.On("GetDocumentByID", "song1", "unknown").Return(nil, errors.ErrResourceNotFound)
 
-	doc, err := service.GetDocumentByID("song1", "unknown")
+	_, err := service.GetDocumentByID("song1", "unknown")
 
 	assert.Error(t, err)
-	assert.Nil(t, doc)
 	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 
 	docRepo.AssertExpectations(t)

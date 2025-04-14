@@ -37,6 +37,8 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
+	req.SongID = songID
+
 	if err := dto.ValidateCreateDocumentRequest(req); err != nil {
 		errors.HandleAPIError(c, err, "Invalid document data")
 		return

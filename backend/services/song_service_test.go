@@ -70,10 +70,9 @@ func TestGetSongByID_NotFound(t *testing.T) {
 
 	songRepo.On("GetSongByID", "999").Return(nil, errors.ErrResourceNotFound)
 
-	song, err := service.GetSongByID("999")
+	_, err := service.GetSongByID("999")
 
 	assert.Error(t, err)
-	assert.Nil(t, song)
 	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
 	songRepo.AssertExpectations(t)
 }
