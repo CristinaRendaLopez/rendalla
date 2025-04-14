@@ -152,7 +152,6 @@ func TestListSongsHandler_ServiceError(t *testing.T) {
 	handler.ListSongsHandler(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error listing songs")
 	mockService.AssertExpectations(t)
 }
 

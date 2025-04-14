@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -67,83 +66,4 @@ func ValidateNonEmptyStringArrayField(update map[string]interface{}, key string)
 
 func IsEmptyString(val string) bool {
 	return strings.TrimSpace(val) == ""
-}
-
-func ValidateSong(song models.Song) error {
-	if IsEmptyString(song.Title) || len(song.Title) < 3 {
-		return errors.ErrValidationFailed
-	}
-	if IsEmptyString(song.Author) {
-		return errors.ErrValidationFailed
-	}
-	if len(song.Genres) == 0 {
-		return errors.ErrValidationFailed
-	}
-	for _, g := range song.Genres {
-		if len(g) < 3 {
-			return errors.ErrValidationFailed
-		}
-	}
-	return nil
-}
-
-func ValidateDocument(doc models.Document) error {
-	if IsEmptyString(doc.Type) {
-		return errors.ErrValidationFailed
-	}
-	if IsEmptyString(doc.PDFURL) {
-		return errors.ErrValidationFailed
-	}
-	if len(doc.Instrument) == 0 {
-		return errors.ErrValidationFailed
-	}
-	for _, inst := range doc.Instrument {
-		if IsEmptyString(inst) {
-			return errors.ErrValidationFailed
-		}
-	}
-	return nil
-}
-
-func ValidateSongAndDocuments(song models.Song, documents []models.Document) error {
-	if err := ValidateSong(song); err != nil {
-		return err
-	}
-
-	for _, doc := range documents {
-		if err := ValidateDocument(doc); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ValidateDocumentUpdate(update map[string]interface{}) error {
-	if err := ValidateNonEmptyStringField(update, "type"); err != nil {
-		return err
-	}
-	if err := ValidateNonEmptyStringField(update, "pdf_url"); err != nil {
-		return err
-	}
-	if err := ValidateNonEmptyStringArrayField(update, "instrument"); err != nil {
-		return err
-	}
-	return nil
-}
-
-func ValidateSongUpdate(update map[string]interface{}) error {
-	if len(update) == 0 {
-		return errors.ErrValidationFailed
-	}
-	if err := ValidateNonEmptyStringField(update, "title"); err != nil {
-		return err
-	}
-	if err := ValidateNonEmptyStringField(update, "author"); err != nil {
-		return err
-	}
-	if err := ValidateNonEmptyStringArrayField(update, "genres"); err != nil {
-		return err
-	}
-	return nil
 }

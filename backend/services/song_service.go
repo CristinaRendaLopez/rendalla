@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 )
@@ -40,8 +40,10 @@ func NewSongService(
 // Returns:
 //   - the generated song ID on success
 //   - error if the creation fails at any point
-func (s *SongService) CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error) {
-	if err := utils.ValidateSongAndDocuments(song, documents); err != nil {
+func (s *SongService) CreateSongWithDocuments(req dto.CreateSongRequest) (string, error) {
+	song, documents := dto.ToSongAndDocuments(req)
+
+	if err := dto.ValidateCreateSongRequest(req); err != nil {
 		return "", fmt.Errorf("validating song and documents: %w", err)
 	}
 
@@ -69,27 +71,27 @@ func (s *SongService) CreateSongWithDocuments(song models.Song, documents []mode
 
 // GetAllSongs retrieves all songs from the repository.
 // Returns:
-//   - ([]models.Song, nil) on success
+//   - ([]dto.SongResponseItem, nil) on success
 //   - (nil, error) if the operation fails
-func (s *SongService) GetAllSongs() ([]models.Song, error) {
+func (s *SongService) GetAllSongs() ([]dto.SongResponseItem, error) {
 	songs, err := s.songRepo.GetAllSongs()
 	if err != nil {
 		return nil, fmt.Errorf("retrieving all songs: %w", err)
 	}
-	return songs, nil
+	return dto.ToSongResponseList(songs), nil
 }
 
 // GetSongByID retrieves a song by its unique identifier.
 // Returns:
-//   - (*models.Song, nil) if found
+//   - (dto.SongResponseItem, nil) if found
 //   - (nil, errors.ErrNotFound) if the song does not exist
 //   - (nil, error) for unexpected failures
-func (s *SongService) GetSongByID(id string) (*models.Song, error) {
+func (s *SongService) GetSongByID(id string) (dto.SongResponseItem, error) {
 	song, err := s.songRepo.GetSongByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("retrieving song with ID %s: %w", id, err)
+		return dto.SongResponseItem{}, fmt.Errorf("retrieving song with ID %s: %w", id, err)
 	}
-	return song, nil
+	return dto.ToSongResponseItem(*song), nil
 }
 
 // UpdateSong applies partial updates to a song, normalizing the title if provided.
@@ -98,23 +100,30 @@ func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 //   - nil on success
 //   - errors.ErrResourceNotFound if the song does not exist
 //   - error if the update operation fails
-func (s *SongService) UpdateSong(id string, updates map[string]interface{}) error {
+func (s *SongService) UpdateSong(id string, updates dto.UpdateSongRequest) error {
 	_, err := s.songRepo.GetSongByID(id)
 	if err != nil {
 		return fmt.Errorf("checking existence of song %s: %w", id, err)
 	}
 
-	updates["updated_at"] = s.timeProvider.Now()
-
-	if title, ok := updates["title"].(string); ok {
-		updates["title_normalized"] = utils.Normalize(title)
+	updateMap := make(map[string]interface{})
+	if updates.Title != nil {
+		updateMap["title"] = *updates.Title
+		updateMap["title_normalized"] = utils.Normalize(*updates.Title)
 	}
+	if updates.Author != nil {
+		updateMap["author"] = *updates.Author
+	}
+	if updates.Genres != nil {
+		updateMap["genres"] = updates.Genres
+	}
+	updateMap["updated_at"] = s.timeProvider.Now()
 
-	if err := utils.ValidateSongUpdate(updates); err != nil {
+	if err := dto.ValidateUpdateSongRequest(updates); err != nil {
 		return fmt.Errorf("validating song update: %w", err)
 	}
 
-	if err := s.songRepo.UpdateSong(id, updates); err != nil {
+	if err := s.songRepo.UpdateSong(id, updateMap); err != nil {
 		return fmt.Errorf("updating song %s: %w", id, err)
 	}
 

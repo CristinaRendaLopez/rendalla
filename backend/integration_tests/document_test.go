@@ -20,11 +20,11 @@ type Document struct {
 	UpdatedAt  string   `json:"updated_at"`
 }
 
-type DocumentResponse struct {
+type GetDocumentResponse struct {
 	Data Document `json:"data"`
 }
 
-type DocumentsResponse struct {
+type GetDocumentsResponse struct {
 	Data []Document `json:"data"`
 }
 
@@ -32,7 +32,7 @@ func TestGetDocumentsBySongID_ShouldReturnSeededDocuments(t *testing.T) {
 	w := MakeRequest("GET", "/songs/queen-001/documents", nil, "")
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response DocumentsResponse
+	var response GetDocumentsResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	assert.NoError(t, err)
 	assert.Len(t, response.Data, 2)
@@ -42,7 +42,7 @@ func TestGetDocumentsBySongID_ShouldReturnEmptyList(t *testing.T) {
 	w := MakeRequest("GET", "/songs/non-existent-id/documents", nil, "")
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response DocumentsResponse
+	var response GetDocumentsResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	assert.NoError(t, err)
 	assert.Empty(t, response.Data)
@@ -52,7 +52,7 @@ func TestGetDocumentByID_ShouldReturnSeededDocument(t *testing.T) {
 	w := MakeRequest("GET", "/songs/queen-001/documents/doc-br-piano", nil, "")
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response DocumentResponse
+	var response GetDocumentResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	assert.NoError(t, err)
 	assert.Equal(t, "doc-br-piano", response.Data.ID)

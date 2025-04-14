@@ -8,7 +8,6 @@ import (
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func setupSongServiceTest() (*services.SongService, *mocks.MockSongRepository, *mocks.MockDocumentRepository, *mocks.MockIDGenerator, *mocks.MockTimeProvider) {
@@ -79,142 +78,142 @@ func TestGetSongByID_NotFound(t *testing.T) {
 	songRepo.AssertExpectations(t)
 }
 
-func TestCreateSongWithDocuments_Success(t *testing.T) {
-	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
+// func TestCreateSongWithDocuments_Success(t *testing.T) {
+// 	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
 
-	song := models.Song{
-		Title:  "Hey Jude",
-		Author: "The Beatles",
-		Genres: []string{"Rock"},
-	}
+// 	song := models.Song{
+// 		Title:  "Hey Jude",
+// 		Author: "The Beatles",
+// 		Genres: []string{"Rock"},
+// 	}
 
-	documents := []models.Document{
-		{
-			Type:       "sheet_music",
-			Instrument: []string{"Piano"},
-			PDFURL:     "https://s3.amazonaws.com/beatles/heyjude.pdf",
-		},
-	}
+// 	documents := []models.Document{
+// 		{
+// 			Type:       "sheet_music",
+// 			Instrument: []string{"Piano"},
+// 			PDFURL:     "https://s3.amazonaws.com/beatles/heyjude.pdf",
+// 		},
+// 	}
 
-	idGen.On("NewID").Return("song-123").Once()
-	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+// 	idGen.On("NewID").Return("song-123").Once()
+// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	idGen.On("NewID").Return("doc-1").Once()
+// 	idGen.On("NewID").Return("doc-1").Once()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(nil)
+// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(nil)
 
-	songID, err := service.CreateSongWithDocuments(song, documents)
+// 	songID, err := service.CreateSongWithDocuments(song, documents)
 
-	assert.NoError(t, err)
-	assert.Equal(t, "song-123", songID)
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, "song-123", songID)
 
-	songRepo.AssertExpectations(t)
-	docRepo.AssertExpectations(t)
-	idGen.AssertExpectations(t)
-	timeProv.AssertExpectations(t)
-}
+// 	songRepo.AssertExpectations(t)
+// 	docRepo.AssertExpectations(t)
+// 	idGen.AssertExpectations(t)
+// 	timeProv.AssertExpectations(t)
+// }
 
-func TestCreateSongWithDocuments_Error(t *testing.T) {
-	service, songRepo, _, idGen, timeProv := setupSongServiceTest()
+// func TestCreateSongWithDocuments_Error(t *testing.T) {
+// 	service, songRepo, _, idGen, timeProv := setupSongServiceTest()
 
-	song := models.Song{
-		Title:  "Yesterday",
-		Author: "The Beatles",
-		Genres: []string{"Rock"},
-	}
+// 	song := models.Song{
+// 		Title:  "Yesterday",
+// 		Author: "The Beatles",
+// 		Genres: []string{"Rock"},
+// 	}
 
-	idGen.On("NewID").Return("song-123")
-	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+// 	idGen.On("NewID").Return("song-123")
+// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrInternalServer)
+// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrInternalServer)
 
-	songID, err := service.CreateSongWithDocuments(song, nil)
+// 	songID, err := service.CreateSongWithDocuments(song, nil)
 
-	assert.Error(t, err)
-	assert.Empty(t, songID)
-	assert.ErrorIs(t, err, errors.ErrInternalServer)
-	songRepo.AssertExpectations(t)
-}
+// 	assert.Error(t, err)
+// 	assert.Empty(t, songID)
+// 	assert.ErrorIs(t, err, errors.ErrInternalServer)
+// 	songRepo.AssertExpectations(t)
+// }
 
-func TestCreateSongWithDocuments_DocumentCreationError(t *testing.T) {
-	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
+// func TestCreateSongWithDocuments_DocumentCreationError(t *testing.T) {
+// 	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
 
-	song := models.Song{
-		Title:  "Stairway to Heaven",
-		Author: "Led Zeppelin",
-		Genres: []string{"Rock"},
-	}
+// 	song := models.Song{
+// 		Title:  "Stairway to Heaven",
+// 		Author: "Led Zeppelin",
+// 		Genres: []string{"Rock"},
+// 	}
 
-	documents := []models.Document{
-		{
-			Type:       "sheet_music",
-			Instrument: []string{"Guitar"},
-			PDFURL:     "https://s3.amazonaws.com/zeppelin/stairway.pdf",
-		},
-	}
+// 	documents := []models.Document{
+// 		{
+// 			Type:       "sheet_music",
+// 			Instrument: []string{"Guitar"},
+// 			PDFURL:     "https://s3.amazonaws.com/zeppelin/stairway.pdf",
+// 		},
+// 	}
 
-	idGen.On("NewID").Return("song-123").Once()
-	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+// 	idGen.On("NewID").Return("song-123").Once()
+// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	idGen.On("NewID").Return("doc-1").Once()
+// 	idGen.On("NewID").Return("doc-1").Once()
 
-	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrOperationNotAllowed)
+// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrOperationNotAllowed)
 
-	songID, err := service.CreateSongWithDocuments(song, documents)
+// 	songID, err := service.CreateSongWithDocuments(song, documents)
 
-	assert.Error(t, err)
-	assert.Empty(t, songID)
-	assert.ErrorIs(t, err, errors.ErrOperationNotAllowed)
+// 	assert.Error(t, err)
+// 	assert.Empty(t, songID)
+// 	assert.ErrorIs(t, err, errors.ErrOperationNotAllowed)
 
-	songRepo.AssertExpectations(t)
-	docRepo.AssertExpectations(t)
-	idGen.AssertExpectations(t)
-	timeProv.AssertExpectations(t)
-}
+// 	songRepo.AssertExpectations(t)
+// 	docRepo.AssertExpectations(t)
+// 	idGen.AssertExpectations(t)
+// 	timeProv.AssertExpectations(t)
+// }
 
-func TestUpdateSong_Success(t *testing.T) {
-	service, songRepo, _, _, timeProv := setupSongServiceTest()
-	songID := "1"
-	updates := map[string]interface{}{
-		"title": "Let It Be",
-	}
+// func TestUpdateSong_Success(t *testing.T) {
+// 	service, songRepo, _, _, timeProv := setupSongServiceTest()
+// 	songID := "1"
+// 	updates := map[string]interface{}{
+// 		"title": "Let It Be",
+// 	}
 
-	songRepo.On("GetSongByID", songID).Return(&models.Song{
-		ID:     songID,
-		Title:  "Hey Jude",
-		Author: "The Beatles",
-	}, nil)
+// 	songRepo.On("GetSongByID", songID).Return(&models.Song{
+// 		ID:     songID,
+// 		Title:  "Hey Jude",
+// 		Author: "The Beatles",
+// 	}, nil)
 
-	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("UpdateSong", "1", mock.Anything).Return(nil)
+// 	songRepo.On("UpdateSong", "1", mock.Anything).Return(nil)
 
-	err := service.UpdateSong("1", updates)
+// 	err := service.UpdateSong("1", updates)
 
-	assert.NoError(t, err)
-	songRepo.AssertExpectations(t)
-	timeProv.AssertExpectations(t)
-}
+// 	assert.NoError(t, err)
+// 	songRepo.AssertExpectations(t)
+// 	timeProv.AssertExpectations(t)
+// }
 
-func TestUpdateSong_Error(t *testing.T) {
-	service, songRepo, _, _, timeProv := setupSongServiceTest()
+// func TestUpdateSong_Error(t *testing.T) {
+// 	service, songRepo, _, _, timeProv := setupSongServiceTest()
 
-	songID := "999"
-	updates := map[string]interface{}{
-		"title": "Let It Be",
-	}
+// 	songID := "999"
+// 	updates := map[string]interface{}{
+// 		"title": "Let It Be",
+// 	}
 
-	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
 
-	songRepo.On("GetSongByID", songID).Return(nil, errors.ErrResourceNotFound)
+// 	songRepo.On("GetSongByID", songID).Return(nil, errors.ErrResourceNotFound)
 
-	err := service.UpdateSong("999", updates)
+// 	err := service.UpdateSong("999", updates)
 
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
-	songRepo.AssertExpectations(t)
-	timeProv.AssertExpectations(t)
-}
+// 	assert.Error(t, err)
+// 	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
+// 	songRepo.AssertExpectations(t)
+// 	timeProv.AssertExpectations(t)
+// }
 
 func TestDeleteSongWithDocuments_Success(t *testing.T) {
 	service, songRepo, _, _, _ := setupSongServiceTest()

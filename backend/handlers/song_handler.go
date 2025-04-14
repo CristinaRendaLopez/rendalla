@@ -23,6 +23,28 @@ func NewSongHandler(songService services.SongServiceInterface) *SongHandler {
 	return &SongHandler{songService: songService}
 }
 
+// CreateSongHandler handles POST /songs.
+// Delegates validation and creation to the service layer.
+func (h *SongHandler) CreateSongHandler(c *gin.Context) {
+	var req dto.CreateSongRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
+		return
+	}
+
+	songID, err := h.songService.CreateSongWithDocuments(req)
+	if err != nil {
+		errors.HandleAPIError(c, err, "Failed to create song")
+		return
+	}
+
+	logrus.WithFields(logrus.Fields{"title": req.Title, "author": req.Author}).Info("Song created successfully")
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Song created successfully",
+		"song_id": songID,
+	})
+}
+
 // GetAllSongsHandler handles GET /songs.
 // Returns all songs stored in the system.
 func (h *SongHandler) GetAllSongsHandler(c *gin.Context) {
@@ -59,36 +81,6 @@ func (h *SongHandler) GetSongByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": song})
 }
 
-// CreateSongHandler handles POST /songs.
-// Delegates validation and creation to the service layer.
-func (h *SongHandler) CreateSongHandler(c *gin.Context) {
-	var req dto.SongRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
-		return
-	}
-
-	song := dto.ToSongModel(req)
-	documents := dto.ToDocumentModels(req.Documents)
-
-	if err := utils.ValidateSongAndDocuments(song, documents); err != nil {
-		errors.HandleAPIError(c, err, "Invalid song or documents")
-		return
-	}
-
-	songID, err := h.songService.CreateSongWithDocuments(song, documents)
-	if err != nil {
-		errors.HandleAPIError(c, err, "Failed to create song")
-		return
-	}
-
-	logrus.WithFields(logrus.Fields{"title": req.Title, "author": req.Author}).Info("Song created successfully")
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Song created successfully",
-		"song_id": songID,
-	})
-}
-
 // UpdateSongHandler handles PUT /songs/:id.
 // Delegates validation and update logic to the service layer.
 func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
@@ -98,7 +90,7 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 		return
 	}
 
-	var songUpdate map[string]interface{}
+	var songUpdate dto.UpdateSongRequest
 	if err := c.ShouldBindJSON(&songUpdate); err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return

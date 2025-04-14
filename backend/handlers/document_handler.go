@@ -26,7 +26,7 @@ func NewDocumentHandler(documentService services.DocumentServiceInterface) *Docu
 // CreateDocumentHandler handles POST /songs/:id/documents.
 // Validates the request and creates a new document linked to a song.
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
-	var req dto.DocumentRequest
+	var req dto.CreateDocumentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
@@ -37,15 +37,12 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	document := dto.ToDocumentModel(req)
-	document.SongID = songID
-
-	if err := utils.ValidateDocument(document); err != nil {
+	if err := dto.ValidateCreateDocumentRequest(req); err != nil {
 		errors.HandleAPIError(c, err, "Invalid document data")
 		return
 	}
 
-	documentID, err := h.documentService.CreateDocument(document)
+	documentID, err := h.documentService.CreateDocument(req)
 	if err != nil {
 		errors.HandleAPIError(c, err, "Failed to create document")
 		return
@@ -122,13 +119,13 @@ func (h *DocumentHandler) UpdateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	var docUpdate map[string]interface{}
+	var docUpdate dto.UpdateDocumentRequest
 	if err := c.ShouldBindJSON(&docUpdate); err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
 		return
 	}
 
-	if err := utils.ValidateDocumentUpdate(docUpdate); err != nil {
+	if err := dto.ValidateUpdateDocumentRequest(docUpdate); err != nil {
 		errors.HandleAPIError(c, err, "Invalid document update data")
 		return
 	}

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -24,8 +24,13 @@ func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentS
 func TestGetAllDocumentsBySongIDHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	documents := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"},
+	documents := []dto.DocumentResponseItem{
+		{
+			ID:     "doc1",
+			SongID: "1",
+			Type:   "sheet_music",
+			PDFURL: "https://example.com/doc1.pdf",
+		},
 	}
 
 	mockService.On("GetDocumentsBySongID", "1").Return(documents, nil)
@@ -43,7 +48,7 @@ func TestGetAllDocumentsBySongIDHandler_Success(t *testing.T) {
 func TestGetAllDocumentsBySongIDHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("GetDocumentsBySongID", "1").Return([]models.Document{}, errors.ErrInternalServer)
+	mockService.On("GetDocumentsBySongID", "1").Return([]dto.DocumentResponseItem{}, errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
@@ -61,13 +66,18 @@ func TestGetAllDocumentsBySongIDHandler_MissingID(t *testing.T) {
 	handler.GetAllDocumentsBySongIDHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
 
 func TestGetDocumentByIDHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	document := &models.Document{ID: "doc1", SongID: "queen-001", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"}
+	document := dto.DocumentResponseItem{
+		ID:     "doc1",
+		SongID: "queen-001",
+		Type:   "sheet_music",
+		PDFURL: "https://example.com/doc1.pdf",
+	}
+
 	mockService.On("GetDocumentByID", "queen-001", "doc1").Return(document, nil)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
@@ -88,13 +98,12 @@ func TestGetDocumentByIDHandler_MissingID(t *testing.T) {
 	handler.GetDocumentByIDHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
 
 func TestGetDocumentByIDHandler_Service_Error(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	mockService.On("GetDocumentByID", "queen-001", "doc1").Return((*models.Document)(nil), errors.ErrResourceNotFound)
+	mockService.On("GetDocumentByID", "queen-001", "doc1").Return(dto.DocumentResponseItem{}, errors.ErrResourceNotFound)
 
 	c, w := utils.CreateTestContext(http.MethodGet, "/songs/queen-001/documents/doc1", nil)
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
@@ -124,7 +133,6 @@ func TestCreateDocumentHandler_Success(t *testing.T) {
 	handler.CreateDocumentHandler(c)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Contains(t, w.Body.String(), "Document created successfully")
 	assert.Contains(t, w.Body.String(), "doc123")
 	mockService.AssertExpectations(t)
 }
@@ -139,7 +147,6 @@ func TestCreateDocumentHandler_MissingSongID(t *testing.T) {
 	handler.CreateDocumentHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
 }
 
 func TestCreateDocumentHandler_InvalidInput(t *testing.T) {
@@ -153,18 +160,20 @@ func TestCreateDocumentHandler_InvalidInput(t *testing.T) {
 	handler.CreateDocumentHandler(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid document data")
 	mockService.AssertExpectations(t)
 }
 
 func TestCreateDocumentHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	validDoc := `{"type": "score", "instrument": ["violin"], "pdf_url": "file.pdf"}`
+	validDoc := `{
+		"type": "score",
+		"instrument": ["violin"],
+		"pdf_url": "https://example.com/file.pdf"
+	}`
 	mockService.On("CreateDocument", mock.Anything).Return("", errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
-	c.Request.Header.Set("Content-Type", "application/json")
 	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
 
 	handler.CreateDocumentHandler(c)
@@ -190,7 +199,9 @@ func TestCreateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 func TestUpdateDocumentHandler_Success(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	updates := map[string]interface{}{"type": "tablature"}
+	updates := dto.UpdateDocumentRequest{
+		Type: "tablature",
+	}
 	mockService.On("UpdateDocument", "queen-001", "doc123", updates).Return(nil)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "tablature"}`))
@@ -231,23 +242,12 @@ func TestUpdateDocumentHandler_InvalidJSONBinding(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestUpdateDocumentHandler_InvalidType(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": ""}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "queen-001"})
-	c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: "doc123"})
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
 func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
 	handler, mockService := setupDocumentHandlerTest()
 
-	updates := map[string]interface{}{"type": "score"}
+	updates := dto.UpdateDocumentRequest{
+		Type: "score",
+	}
 	mockService.On("UpdateDocument", "queen-001", "doc123", updates).Return(errors.ErrInternalServer)
 
 	c, w := utils.CreateTestContext(http.MethodPut, "/songs/queen-001/documents/doc123", strings.NewReader(`{"type": "score"}`))

@@ -1,6 +1,8 @@
 package services
 
-import "github.com/CristinaRendaLopez/rendalla-backend/models"
+import (
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+)
 
 // SongServiceInterface defines application-level operations for managing songs and their associated documents.
 type SongServiceInterface interface {
@@ -10,27 +12,27 @@ type SongServiceInterface interface {
 	// Returns:
 	//   - the generated song ID on success
 	//   - error if the operation fails
-	CreateSongWithDocuments(song models.Song, documents []models.Document) (string, error)
+	CreateSongWithDocuments(dto.CreateSongRequest) (string, error)
 
 	// GetAllSongs returns all songs stored in the system.
 	// Returns:
-	//   - ([]models.Song, nil) on success
+	//   - ([]dto.SongResponseItem, nil) on success
 	//   - (nil, error) if the retrieval fails
-	GetAllSongs() ([]models.Song, error)
+	GetAllSongs() ([]dto.SongResponseItem, error)
 
 	// GetSongByID retrieves a single song by its unique identifier.
 	// Returns:
-	//   - (*models.Song, nil) if found
+	//   - (dto.SongResponseItem, nil) if found
 	//   - (nil, errors.ErrNotFound) if the song does not exist
 	//   - (nil, error) for unexpected errors
-	GetSongByID(songID string) (*models.Song, error)
+	GetSongByID(songID string) (dto.SongResponseItem, error)
 
 	// UpdateSong applies partial updates to a song, including optional title normalization.
 	// Returns:
 	//   - nil on success
 	//   - errors.ErrNotFound if the song does not exist
 	//   - error if the update fails
-	UpdateSong(songID string, updates map[string]interface{}) error
+	UpdateSong(songID string, updates dto.UpdateSongRequest) error
 
 	// DeleteSongWithDocuments removes a song and all documents linked to it.
 	// Returns:
