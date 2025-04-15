@@ -96,6 +96,11 @@ func (h *SongHandler) UpdateSongHandler(c *gin.Context) {
 		return
 	}
 
+	if err := dto.ValidateUpdateSongRequest(songUpdate); err != nil {
+		errors.HandleAPIError(c, err, "Invalid update payload")
+		return
+	}
+
 	if err := h.songService.UpdateSong(id, songUpdate); err != nil {
 		errors.HandleAPIError(c, err, "Failed to update song")
 		return
