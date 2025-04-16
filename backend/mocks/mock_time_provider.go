@@ -13,5 +13,5 @@ func (m *MockTimeProvider) Now() string {
 
 func (m *MockTimeProvider) NowUnix() int64 {
 	args := m.Called()
-	return int64(args.Int(0))
+	return args.Get(0).(int64)
 }
