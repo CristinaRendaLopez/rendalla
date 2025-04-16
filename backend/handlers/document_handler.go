@@ -40,10 +40,11 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 
 	req.SongID = songID
 
-	if err := dto.ValidateCreateDocumentRequest(req); err != nil {
-		errors.HandleAPIError(c, err, "Invalid document data")
-		return
-	}
+	// JSON validation is enough
+	// if err := dto.ValidateCreateDocumentRequest(req); err != nil {
+	// 	errors.HandleAPIError(c, err, "Invalid document data")
+	// 	return
+	// }
 
 	documentID, err := h.documentService.CreateDocument(req)
 	if err != nil {

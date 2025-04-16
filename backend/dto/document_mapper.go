@@ -58,6 +58,9 @@ func ValidateCreateDocumentRequest(doc CreateDocumentRequest) error {
 
 // ValidateUpdateDocumentRequest validates a partial DocumentRequest used for updates.
 func ValidateUpdateDocumentRequest(doc UpdateDocumentRequest) error {
+	if doc.Type == "" && doc.PDFURL == "" && doc.AudioURL == "" && len(doc.Instrument) == 0 {
+		return errors.ErrValidationFailed
+	}
 	if doc.Type != "" && utils.IsEmptyString(doc.Type) {
 		return errors.ErrValidationFailed
 	}

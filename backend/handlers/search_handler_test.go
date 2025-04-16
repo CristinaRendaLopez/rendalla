@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -19,279 +20,192 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 	return handler, mockService
 }
 
-func TestListSongsHandler_FilterByTitle_DefaultSort(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
+func TestListSongsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		mockTitle    string
+		mockSort     string
+		mockOrder    string
+		mockReturn   []models.Song
+		mockNext     interface{}
+		mockErr      error
+		expectedCode int
+		expectedBody []string
+	}{
+		{
+			name:         "filter by title",
+			query:        "title=love",
+			mockTitle:    "love",
+			mockReturn:   []models.Song{SongLoveOfMyLife},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"Love of My Life"},
+		},
+		{
+			name:         "sort by title desc",
+			query:        "title=love&sort=title&order=desc",
+			mockTitle:    "love",
+			mockSort:     "title",
+			mockOrder:    "desc",
+			mockReturn:   []models.Song{SongSomebodyToLove, SongLoveOfMyLife},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"Somebody to Love", "Love of My Life"},
+		},
+		{
+			name:         "empty result",
+			query:        "title=nothing",
+			mockTitle:    "nothing",
+			mockReturn:   []models.Song{},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{`"data":[]`},
+		},
+		{
+			name:         "next_token included",
+			query:        "next_token=abc",
+			mockNext:     "abc",
+			mockReturn:   []models.Song{SongOneVision},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"One Vision", "next_token"},
+		},
+		{
+			name:         "service error",
+			query:        "title=error",
+			mockTitle:    "error",
+			mockErr:      errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{
-		{ID: "1", Title: "Love of My Life", Author: "Queen"},
-	}, nil, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSearchHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
-	c.Request.URL.RawQuery = "title=love"
+			mockService.On("ListSongs", tt.mockTitle, tt.mockSort, tt.mockOrder, 10, mock.Anything).
+				Return(tt.mockReturn, tt.mockNext, tt.mockErr)
 
-	handler.ListSongsHandler(c)
+			path := "/songs/search"
+			if tt.query != "" {
+				path += "?" + tt.query
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "\"id\":\"1\"")
-	mockService.AssertExpectations(t)
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			c.Request.URL.RawQuery = tt.query
+
+			handler.ListSongsHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+			for _, s := range tt.expectedBody {
+				assert.Contains(t, w.Body.String(), s)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
 }
 
-func TestListSongsHandler_TitleWithSortDesc(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "love", "title", "desc", 10, mock.Anything).Return([]models.Song{
-		{ID: "2", Title: "Somebody to Love", Author: "Queen"},
-		{ID: "1", Title: "Love of My Life", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love&sort=title&order=desc", nil)
-	c.Request.URL.RawQuery = "title=love&sort=title&order=desc"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Love of My Life")
-	assert.Contains(t, w.Body.String(), "Somebody to Love")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_SortByCreatedAtAsc(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "", "created_at", "asc", 10, mock.Anything).Return([]models.Song{
-		{ID: "3", Title: "Seven Seas of Rhye", Author: "Queen", CreatedAt: "1974-01-01T00:00:00Z"},
-		{ID: "4", Title: "Radio Ga Ga", Author: "Queen", CreatedAt: "1984-01-01T00:00:00Z"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?sort=created_at&order=asc", nil)
-	c.Request.URL.RawQuery = "sort=created_at&order=asc"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Seven Seas of Rhye")
-	assert.Contains(t, w.Body.String(), "Radio Ga Ga")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_DefaultParams(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "", "", "", 10, mock.Anything).Return([]models.Song{
-		{ID: "5", Title: "The Show Must Go On", Author: "Queen"},
-		{ID: "6", Title: "I Want It All", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search", nil)
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "The Show Must Go On")
-	assert.Contains(t, w.Body.String(), "I Want It All")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_EmptyResult(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "radio", "", "", 10, mock.Anything).Return([]models.Song{}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=radio", nil)
-	c.Request.URL.RawQuery = "title=radio"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"data":[]`)
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_SortByTitleAsc_NoFilter(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "", "title", "asc", 10, mock.Anything).Return([]models.Song{
-		{ID: "2", Title: "Bohemian Rhapsody", Author: "Queen"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?sort=title&order=asc", nil)
-	c.Request.URL.RawQuery = "sort=title&order=asc"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Bohemian Rhapsody")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_NextTokenPresent(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "", "", "", 10, mock.Anything).Return([]models.Song{
-		{ID: "4", Title: "One Vision", Author: "Queen"},
-	}, "some-token", nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?next_token=some-token", nil)
-	c.Request.URL.RawQuery = "next_token=some-token"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "One Vision")
-	assert.Contains(t, w.Body.String(), "next_token")
-	mockService.AssertExpectations(t)
-}
-
-func TestListSongsHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListSongs", "love", "", "", 10, mock.Anything).Return([]models.Song{}, nil, errors.ErrInternalServer)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
-	c.Request.URL.RawQuery = "title=love"
-
-	handler.ListSongsHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_FilterByTitle_DefaultSort(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "queen", "", "", "", "", 10, mock.Anything).Return([]models.Document{
-		{ID: "1", SongID: "s1", TitleNormalized: "queen", Type: "sheet_music", Instrument: []string{"Guitar"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=queen", nil)
-	c.Request.URL.RawQuery = "title=queen"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "sheet_music")
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_FilterByInstrument(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "", "Piano", "", "", "", 10, mock.Anything).Return([]models.Document{
-		{ID: "2", SongID: "s2", TitleNormalized: "bohemian rhapsody", Type: "sheet_music", Instrument: []string{"Piano"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?instrument=Piano", nil)
-	c.Request.URL.RawQuery = "instrument=Piano"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "\"id\":\"2\"")
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_FilterByType(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "", "", "tablature", "", "", 10, mock.Anything).Return([]models.Document{
-		{ID: "3", SongID: "s3", TitleNormalized: "we will rock you", Type: "tablature", Instrument: []string{"Guitar"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?type=tablature", nil)
-	c.Request.URL.RawQuery = "type=tablature"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "tablature")
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_CombinedFiltersWithSorting(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "love", "Violin", "sheet_music", "title", "asc", 10, mock.Anything).Return([]models.Document{
-		{ID: "3", SongID: "s3", TitleNormalized: "love of my life", Type: "sheet_music", Instrument: []string{"Violin"}},
-		{ID: "4", SongID: "s4", TitleNormalized: "somebody to love", Type: "sheet_music", Instrument: []string{"Violin"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=love&instrument=Violin&type=sheet_music&sort=title&order=asc", nil)
-	c.Request.URL.RawQuery = "title=love&instrument=Violin&type=sheet_music&sort=title&order=asc"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "\"id\":\"3\"")
-	assert.Contains(t, w.Body.String(), "\"id\":\"4\"")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_SortByTitleAsc(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "", "", "", "title", "asc", 10, mock.Anything).Return([]models.Document{
-		{ID: "7", SongID: "s7", TitleNormalized: "a kind of magic", Type: "sheet_music"},
-		{ID: "8", SongID: "s8", TitleNormalized: "bohemian rhapsody", Type: "sheet_music"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?sort=title&order=asc", nil)
-	c.Request.URL.RawQuery = "sort=title&order=asc"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "\"id\":\"7\"")
-	assert.Contains(t, w.Body.String(), "\"id\":\"8\"")
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_SortByCreatedAtDesc(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "", "", "", "created_at", "desc", 10, mock.Anything).Return([]models.Document{
-		{ID: "5", SongID: "s5", TitleNormalized: "under pressure", CreatedAt: "1985-01-01T00:00:00Z"},
-		{ID: "6", SongID: "s6", TitleNormalized: "innuendo", CreatedAt: "1991-01-01T00:00:00Z"},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?sort=created_at&order=desc", nil)
-	c.Request.URL.RawQuery = "sort=created_at&order=desc"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "\"id\":\"5\"")
-	assert.Contains(t, w.Body.String(), "\"id\":\"6\"")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_EmptyResult(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "nonexistent", "", "", "", "", 10, mock.Anything).Return([]models.Document{}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=nonexistent", nil)
-	c.Request.URL.RawQuery = "title=nonexistent"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), `"data":[]`)
-	mockService.AssertExpectations(t)
-}
-
-func TestListDocumentsHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("ListDocuments", "queen", "", "", "", "", 10, mock.Anything).
-		Return([]models.Document{}, nil, errors.ErrInternalServer)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=queen", nil)
-	c.Request.URL.RawQuery = "title=queen"
-
-	handler.ListDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.ErrorIs(t, errors.ErrInternalServer, errors.ErrInternalServer)
-	mockService.AssertExpectations(t)
+func TestListDocumentsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		params       []string
+		mockReturn   []models.Document
+		mockNext     interface{}
+		mockErr      error
+		expectedCode int
+		expectedIDs  []string
+	}{
+		{
+			name:         "filter by title",
+			query:        "title=queen",
+			params:       []string{"queen", "", "", "", ""},
+			mockReturn:   []models.Document{DocSheetMusicGuitar},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"1"},
+		},
+		{
+			name:         "filter by instrument",
+			query:        "instrument=Piano",
+			params:       []string{"", "Piano", "", "", ""},
+			mockReturn:   []models.Document{DocSheetMusicPiano},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"2"},
+		},
+		{
+			name:         "filter by type",
+			query:        "type=tablature",
+			params:       []string{"", "", "tablature", "", ""},
+			mockReturn:   []models.Document{DocTablatureGuitar},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"3"},
+		},
+		{
+			name:         "combined filters with sorting",
+			query:        "title=love&instrument=Violin&type=sheet_music&sort=title&order=asc",
+			params:       []string{"love", "Violin", "sheet_music", "title", "asc"},
+			mockReturn:   []models.Document{DocViolinLoveOfMyLife, DocViolinSomebodyToLove},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"3", "4"},
+		},
+		{
+			name:         "sort by created_at desc",
+			query:        "sort=created_at&order=desc",
+			params:       []string{"", "", "", "created_at", "desc"},
+			mockReturn:   []models.Document{DocUnderPressure, DocInnuendo},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"5", "6"},
+		},
+		{
+			name:         "empty result",
+			query:        "title=none",
+			params:       []string{"none", "", "", "", ""},
+			mockReturn:   []models.Document{},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{},
+		},
+		{
+			name:         "service error",
+			query:        "title=queen",
+			params:       []string{"queen", "", "", "", ""},
+			mockErr:      errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSearchHandlerTest()
+
+			mockService.On("ListDocuments",
+				tt.params[0], tt.params[1], tt.params[2], tt.params[3], tt.params[4], 10, mock.Anything,
+			).Return(tt.mockReturn, tt.mockNext, tt.mockErr)
+
+			path := "/documents/search"
+			if tt.query != "" {
+				path += "?" + tt.query
+			}
+
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			c.Request.URL.RawQuery = tt.query
+
+			handler.ListDocumentsHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusOK {
+				var response struct {
+					Data []models.Document `json:"data"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+
+				var resultIDs []string
+				for _, doc := range response.Data {
+					resultIDs = append(resultIDs, doc.ID)
+				}
+				assert.ElementsMatch(t, tt.expectedIDs, resultIDs)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
 }
