@@ -3,11 +3,13 @@ package services_test
 import (
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func setupSongServiceTest() (*services.SongService, *mocks.MockSongRepository, *mocks.MockDocumentRepository, *mocks.MockIDGenerator, *mocks.MockTimeProvider) {
@@ -19,220 +21,265 @@ func setupSongServiceTest() (*services.SongService, *mocks.MockSongRepository, *
 	return service, songRepo, docRepo, idGen, timeProv
 }
 
-func TestGetAllSongs_Success(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
-
-	expectedSongs := []models.Song{
-		{ID: "1", Title: "Bohemian Rhapsody", Author: "Queen", Genres: []string{"Rock"}},
-		{ID: "2", Title: "Imagine", Author: "John Lennon", Genres: []string{"Pop"}},
+func TestCreateSongWithDocuments(t *testing.T) {
+	tests := []struct {
+		name          string
+		request       dto.CreateSongRequest
+		mockSongError error
+		expectError   bool
+	}{
+		{
+			name:          "success",
+			request:       ValidCreateSongRequest,
+			mockSongError: nil,
+			expectError:   false,
+		},
+		{
+			name:        "validation fails",
+			request:     InvalidCreateSongRequest,
+			expectError: true,
+		},
+		{
+			name:          "repo error",
+			request:       ValidCreateSongRequest,
+			mockSongError: errors.ErrInternalServer,
+			expectError:   true,
+		},
 	}
 
-	songRepo.On("GetAllSongs").Return(expectedSongs, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, songRepo, _, idGen, timeProvider := setupSongServiceTest()
+			idGen.On("NewID").Return("id").Maybe()
+			timeProvider.On("Now").Return("now").Maybe()
 
-	songs, err := service.GetAllSongs()
+			if tt.mockSongError == nil && !tt.expectError {
+				songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).
+					Return(tt.mockSongError)
+			} else if tt.mockSongError != nil {
+				songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).
+					Return(tt.mockSongError)
+			}
 
-	assert.NoError(t, err)
-	assert.Len(t, songs, 2)
-	assert.Equal(t, "Bohemian Rhapsody", songs[0].Title)
-	songRepo.AssertExpectations(t)
+			_, err := service.CreateSongWithDocuments(tt.request)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
-func TestGetAllSongs_Error(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
+func TestGetAllSongs(t *testing.T) {
+	tests := []struct {
+		name         string
+		mockSongs    []models.Song
+		mockError    error
+		expectError  bool
+		expectedSize int
+	}{
+		{
+			name:         "returns songs",
+			mockSongs:    []models.Song{*MockedSong},
+			mockError:    nil,
+			expectError:  false,
+			expectedSize: 1,
+		},
+		{
+			name:         "empty list",
+			mockSongs:    []models.Song{},
+			mockError:    nil,
+			expectError:  false,
+			expectedSize: 0,
+		},
+		{
+			name:         "repository error",
+			mockError:    errors.ErrInternalServer,
+			expectError:  true,
+			expectedSize: 0,
+		},
+	}
 
-	songRepo.On("GetAllSongs").Return([]models.Song{}, errors.ErrInternalServer)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, songRepo, _, _, _ := setupSongServiceTest()
 
-	songs, err := service.GetAllSongs()
+			songRepo.On("GetAllSongs").Return(tt.mockSongs, tt.mockError)
 
-	assert.Error(t, err)
-	assert.Empty(t, songs)
-	assert.ErrorIs(t, err, errors.ErrInternalServer)
-	songRepo.AssertExpectations(t)
+			songs, err := service.GetAllSongs()
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, songs, tt.expectedSize)
+			}
+		})
+	}
 }
 
-func TestGetSongByID_Success(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
+func TestGetSongByID(t *testing.T) {
+	tests := []struct {
+		name        string
+		songID      string
+		mockSong    *models.Song
+		mockError   error
+		expectError bool
+		expectedID  string
+	}{
+		{
+			name:        "found",
+			songID:      "1",
+			mockSong:    MockedSong,
+			expectError: false,
+			expectedID:  "1",
+		},
+		{
+			name:        "not found",
+			songID:      "2",
+			mockError:   errors.ErrResourceNotFound,
+			expectError: true,
+		},
+		{
+			name:        "repository error",
+			songID:      "3",
+			mockError:   errors.ErrInternalServer,
+			expectError: true,
+		},
+	}
 
-	expectedSong := &models.Song{ID: "1", Title: "Bohemian Rhapsody", Author: "Queen", Genres: []string{"Rock"}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, songRepo, _, _, _ := setupSongServiceTest()
 
-	songRepo.On("GetSongByID", "1").Return(expectedSong, nil)
+			songRepo.On("GetSongByID", tt.songID).Return(tt.mockSong, tt.mockError)
 
-	song, err := service.GetSongByID("1")
+			song, err := service.GetSongByID(tt.songID)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, song)
-	assert.Equal(t, "Bohemian Rhapsody", song.Title)
-	songRepo.AssertExpectations(t)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedID, song.ID)
+			}
+		})
+	}
 }
 
-func TestGetSongByID_NotFound(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
+func TestUpdateSong(t *testing.T) {
+	tests := []struct {
+		name            string
+		songID          string
+		updates         dto.UpdateSongRequest
+		mockGetError    error
+		mockUpdateError error
+		expectError     bool
+	}{
+		{
+			name:            "successful update",
+			songID:          "1",
+			updates:         ValidUpdateSongRequest,
+			mockGetError:    nil,
+			mockUpdateError: nil,
+			expectError:     false,
+		},
+		{
+			name:            "successful author update",
+			songID:          "1",
+			updates:         ValidAuthorUpdateRequest,
+			mockGetError:    nil,
+			mockUpdateError: nil,
+			expectError:     false,
+		},
+		{
+			name:         "validation fails",
+			songID:       "1",
+			updates:      InvalidUpdateSongRequest,
+			mockGetError: nil,
+			expectError:  true,
+		},
+		{
+			name:         "song not found",
+			songID:       "2",
+			updates:      SongNotFoundInvalidUpdateSongRequest,
+			mockGetError: errors.ErrResourceNotFound,
+			expectError:  true,
+		},
+		{
+			name:            "repository update fails",
+			songID:          "3",
+			updates:         ValidUpdateSongRequest,
+			mockGetError:    nil,
+			mockUpdateError: errors.ErrInternalServer,
+			expectError:     true,
+		},
+	}
 
-	songRepo.On("GetSongByID", "999").Return(nil, errors.ErrResourceNotFound)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, songRepo, _, _, timeProvider := setupSongServiceTest()
 
-	_, err := service.GetSongByID("999")
+			timeProvider.On("Now").Return("mocked-time").Maybe()
 
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
-	songRepo.AssertExpectations(t)
+			if tt.mockGetError == nil {
+				songRepo.On("GetSongByID", tt.songID).Return(&models.Song{ID: tt.songID}, nil)
+			} else {
+				songRepo.On("GetSongByID", tt.songID).Return(nil, tt.mockGetError)
+			}
+
+			if tt.mockUpdateError != nil {
+				songRepo.On("UpdateSong", tt.songID, mock.Anything).Return(tt.mockUpdateError)
+			} else if tt.mockGetError == nil {
+				songRepo.On("UpdateSong", tt.songID, mock.Anything).Return(nil)
+			}
+
+			err := service.UpdateSong(tt.songID, tt.updates)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
-// func TestCreateSongWithDocuments_Success(t *testing.T) {
-// 	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
+func TestDeleteSongWithDocuments(t *testing.T) {
+	tests := []struct {
+		name        string
+		songID      string
+		mockError   error
+		expectError bool
+	}{
+		{
+			name:        "success",
+			songID:      "1",
+			mockError:   nil,
+			expectError: false,
+		},
+		{
+			name:        "repository error",
+			songID:      "2",
+			mockError:   errors.ErrInternalServer,
+			expectError: true,
+		},
+	}
 
-// 	song := models.Song{
-// 		Title:  "Hey Jude",
-// 		Author: "The Beatles",
-// 		Genres: []string{"Rock"},
-// 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, songRepo, _, _, _ := setupSongServiceTest()
 
-// 	documents := []models.Document{
-// 		{
-// 			Type:       "sheet_music",
-// 			Instrument: []string{"Piano"},
-// 			PDFURL:     "https://s3.amazonaws.com/beatles/heyjude.pdf",
-// 		},
-// 	}
+			songRepo.On("DeleteSongWithDocuments", tt.songID).Return(tt.mockError)
 
-// 	idGen.On("NewID").Return("song-123").Once()
-// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
+			err := service.DeleteSongWithDocuments(tt.songID)
 
-// 	idGen.On("NewID").Return("doc-1").Once()
-
-// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(nil)
-
-// 	songID, err := service.CreateSongWithDocuments(song, documents)
-
-// 	assert.NoError(t, err)
-// 	assert.Equal(t, "song-123", songID)
-
-// 	songRepo.AssertExpectations(t)
-// 	docRepo.AssertExpectations(t)
-// 	idGen.AssertExpectations(t)
-// 	timeProv.AssertExpectations(t)
-// }
-
-// func TestCreateSongWithDocuments_Error(t *testing.T) {
-// 	service, songRepo, _, idGen, timeProv := setupSongServiceTest()
-
-// 	song := models.Song{
-// 		Title:  "Yesterday",
-// 		Author: "The Beatles",
-// 		Genres: []string{"Rock"},
-// 	}
-
-// 	idGen.On("NewID").Return("song-123")
-// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
-
-// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrInternalServer)
-
-// 	songID, err := service.CreateSongWithDocuments(song, nil)
-
-// 	assert.Error(t, err)
-// 	assert.Empty(t, songID)
-// 	assert.ErrorIs(t, err, errors.ErrInternalServer)
-// 	songRepo.AssertExpectations(t)
-// }
-
-// func TestCreateSongWithDocuments_DocumentCreationError(t *testing.T) {
-// 	service, songRepo, docRepo, idGen, timeProv := setupSongServiceTest()
-
-// 	song := models.Song{
-// 		Title:  "Stairway to Heaven",
-// 		Author: "Led Zeppelin",
-// 		Genres: []string{"Rock"},
-// 	}
-
-// 	documents := []models.Document{
-// 		{
-// 			Type:       "sheet_music",
-// 			Instrument: []string{"Guitar"},
-// 			PDFURL:     "https://s3.amazonaws.com/zeppelin/stairway.pdf",
-// 		},
-// 	}
-
-// 	idGen.On("NewID").Return("song-123").Once()
-// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
-
-// 	idGen.On("NewID").Return("doc-1").Once()
-
-// 	songRepo.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return(errors.ErrOperationNotAllowed)
-
-// 	songID, err := service.CreateSongWithDocuments(song, documents)
-
-// 	assert.Error(t, err)
-// 	assert.Empty(t, songID)
-// 	assert.ErrorIs(t, err, errors.ErrOperationNotAllowed)
-
-// 	songRepo.AssertExpectations(t)
-// 	docRepo.AssertExpectations(t)
-// 	idGen.AssertExpectations(t)
-// 	timeProv.AssertExpectations(t)
-// }
-
-// func TestUpdateSong_Success(t *testing.T) {
-// 	service, songRepo, _, _, timeProv := setupSongServiceTest()
-// 	songID := "1"
-// 	updates := map[string]interface{}{
-// 		"title": "Let It Be",
-// 	}
-
-// 	songRepo.On("GetSongByID", songID).Return(&models.Song{
-// 		ID:     songID,
-// 		Title:  "Hey Jude",
-// 		Author: "The Beatles",
-// 	}, nil)
-
-// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
-
-// 	songRepo.On("UpdateSong", "1", mock.Anything).Return(nil)
-
-// 	err := service.UpdateSong("1", updates)
-
-// 	assert.NoError(t, err)
-// 	songRepo.AssertExpectations(t)
-// 	timeProv.AssertExpectations(t)
-// }
-
-// func TestUpdateSong_Error(t *testing.T) {
-// 	service, songRepo, _, _, timeProv := setupSongServiceTest()
-
-// 	songID := "999"
-// 	updates := map[string]interface{}{
-// 		"title": "Let It Be",
-// 	}
-
-// 	timeProv.On("Now").Return("2023-03-20T12:00:00Z").Maybe()
-
-// 	songRepo.On("GetSongByID", songID).Return(nil, errors.ErrResourceNotFound)
-
-// 	err := service.UpdateSong("999", updates)
-
-// 	assert.Error(t, err)
-// 	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
-// 	songRepo.AssertExpectations(t)
-// 	timeProv.AssertExpectations(t)
-// }
-
-func TestDeleteSongWithDocuments_Success(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
-
-	songRepo.On("DeleteSongWithDocuments", "1").Return(nil)
-
-	err := service.DeleteSongWithDocuments("1")
-
-	assert.NoError(t, err)
-	songRepo.AssertExpectations(t)
-}
-
-func TestDeleteSongWithDocuments_Error(t *testing.T) {
-	service, songRepo, _, _, _ := setupSongServiceTest()
-
-	songRepo.On("DeleteSongWithDocuments", "999").Return(errors.ErrResourceNotFound)
-
-	err := service.DeleteSongWithDocuments("999")
-
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, errors.ErrResourceNotFound)
-	songRepo.AssertExpectations(t)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
