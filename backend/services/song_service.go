@@ -133,8 +133,14 @@ func (s *SongService) UpdateSong(id string, updates dto.UpdateSongRequest) error
 // DeleteSongWithDocuments removes a song and all associated documents.
 // Returns:
 //   - nil on success
+//   - errors.ErrResourceNotFound if the song does not exist
 //   - error if the deletion fails
 func (s *SongService) DeleteSongWithDocuments(songID string) error {
+	_, err := s.songRepo.GetSongByID(songID)
+	if err != nil {
+		return fmt.Errorf("checking existence of song %s: %w", songID, err)
+	}
+
 	if err := s.songRepo.DeleteSongWithDocuments(songID); err != nil {
 		return fmt.Errorf("deleting song %s with documents: %w", songID, err)
 	}

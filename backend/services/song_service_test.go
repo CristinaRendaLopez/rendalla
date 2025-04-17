@@ -82,7 +82,7 @@ func TestGetAllSongs(t *testing.T) {
 	}{
 		{
 			name:         "returns songs",
-			mockSongs:    []models.Song{*MockedSong},
+			mockSongs:    []models.Song{MockedSong},
 			mockError:    nil,
 			expectError:  false,
 			expectedSize: 1,
@@ -132,7 +132,7 @@ func TestGetSongByID(t *testing.T) {
 		{
 			name:        "found",
 			songID:      "1",
-			mockSong:    MockedSong,
+			mockSong:    &MockedSong,
 			expectError: false,
 			expectedID:  "1",
 		},
@@ -248,22 +248,32 @@ func TestUpdateSong(t *testing.T) {
 
 func TestDeleteSongWithDocuments(t *testing.T) {
 	tests := []struct {
-		name        string
-		songID      string
-		mockError   error
-		expectError bool
+		name              string
+		songID            string
+		mockGetSongErr    error
+		mockDeleteSongErr error
+		expectError       bool
 	}{
 		{
-			name:        "success",
-			songID:      "1",
-			mockError:   nil,
-			expectError: false,
+			name:              "success",
+			songID:            "1",
+			mockGetSongErr:    nil,
+			mockDeleteSongErr: nil,
+			expectError:       false,
 		},
 		{
-			name:        "repository error",
-			songID:      "2",
-			mockError:   errors.ErrInternalServer,
-			expectError: true,
+			name:              "repository error",
+			songID:            "2",
+			mockGetSongErr:    nil,
+			mockDeleteSongErr: errors.ErrInternalServer,
+			expectError:       true,
+		},
+		{
+			name:              "song not found",
+			songID:            "3",
+			mockGetSongErr:    errors.ErrResourceNotFound,
+			mockDeleteSongErr: nil,
+			expectError:       true,
 		},
 	}
 
@@ -271,7 +281,11 @@ func TestDeleteSongWithDocuments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service, songRepo, _, _, _ := setupSongServiceTest()
 
-			songRepo.On("DeleteSongWithDocuments", tt.songID).Return(tt.mockError)
+			songRepo.On("GetSongByID", tt.songID).Return(&MockedSong, tt.mockGetSongErr)
+
+			if tt.mockGetSongErr == nil {
+				songRepo.On("DeleteSongWithDocuments", tt.songID).Return(tt.mockDeleteSongErr)
+			}
 
 			err := service.DeleteSongWithDocuments(tt.songID)
 

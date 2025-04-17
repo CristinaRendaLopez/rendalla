@@ -41,7 +41,7 @@ var SongNotFoundInvalidUpdateSongRequest = dto.UpdateSongRequest{
 	Title: ptr("Radio"),
 }
 
-var MockedSong = &models.Song{
+var MockedSong = models.Song{
 	ID:     "1",
 	Title:  "Bohemian Rhapsody",
 	Author: "Queen",

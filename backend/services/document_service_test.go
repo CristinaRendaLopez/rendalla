@@ -229,6 +229,16 @@ func TestUpdateDocument(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name:          "document not found",
+			songID:        "song-123",
+			docID:         "missing-doc",
+			updates:       ValidUpdateDocumentRequest,
+			mockSong:      &RelatedSong,
+			mockSongErr:   nil,
+			mockUpdateErr: nil,
+			expectError:   true,
+		},
+		{
 			name:          "repository update fails",
 			songID:        "song-123",
 			docID:         "doc-1",
@@ -246,11 +256,15 @@ func TestUpdateDocument(t *testing.T) {
 
 			timeProv.On("Now").Return("now")
 
+			songRepo.On("GetSongByID", tt.songID).Return(tt.mockSong, tt.mockSongErr)
+
 			if tt.mockSongErr == nil {
-				songRepo.On("GetSongByID", tt.songID).Return(tt.mockSong, nil)
-				docRepo.On("UpdateDocument", tt.songID, tt.docID, mock.Anything).Return(tt.mockUpdateErr)
-			} else {
-				songRepo.On("GetSongByID", tt.songID).Return(nil, tt.mockSongErr)
+				if tt.docID == "missing-doc" {
+					docRepo.On("GetDocumentByID", tt.songID, tt.docID).Return(nil, errors.ErrResourceNotFound)
+				} else {
+					docRepo.On("GetDocumentByID", tt.songID, tt.docID).Return(&MockedDocument, nil)
+					docRepo.On("UpdateDocument", tt.songID, tt.docID, mock.Anything).Return(tt.mockUpdateErr)
+				}
 			}
 
 			err := service.UpdateDocument(tt.songID, tt.docID, tt.updates)
@@ -266,25 +280,36 @@ func TestUpdateDocument(t *testing.T) {
 
 func TestDeleteDocument(t *testing.T) {
 	tests := []struct {
-		name        string
-		songID      string
-		docID       string
-		mockError   error
-		expectError bool
+		name             string
+		songID           string
+		docID            string
+		mockGetDocErr    error
+		mockDeleteDocErr error
+		expectError      bool
 	}{
 		{
-			name:        "successful delete",
-			songID:      "song-123",
-			docID:       "doc-1",
-			mockError:   nil,
-			expectError: false,
+			name:             "successful delete",
+			songID:           "song-123",
+			docID:            "doc-1",
+			mockGetDocErr:    nil,
+			mockDeleteDocErr: nil,
+			expectError:      false,
 		},
 		{
-			name:        "repository error",
-			songID:      "song-123",
-			docID:       "doc-err",
-			mockError:   errors.ErrInternalServer,
-			expectError: true,
+			name:             "repository error",
+			songID:           "song-123",
+			docID:            "doc-err",
+			mockGetDocErr:    nil,
+			mockDeleteDocErr: errors.ErrInternalServer,
+			expectError:      true,
+		},
+		{
+			name:             "document not found",
+			songID:           "song-123",
+			docID:            "missing-doc",
+			mockGetDocErr:    errors.ErrResourceNotFound,
+			mockDeleteDocErr: nil,
+			expectError:      true,
 		},
 	}
 
@@ -292,7 +317,11 @@ func TestDeleteDocument(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service, docRepo, _, _, _ := setupDocumentServiceTest()
 
-			docRepo.On("DeleteDocument", tt.songID, tt.docID).Return(tt.mockError)
+			docRepo.On("GetDocumentByID", tt.songID, tt.docID).Return(&MockedDocument, tt.mockGetDocErr)
+
+			if tt.mockGetDocErr == nil {
+				docRepo.On("DeleteDocument", tt.songID, tt.docID).Return(tt.mockDeleteDocErr)
+			}
 
 			err := service.DeleteDocument(tt.songID, tt.docID)
 

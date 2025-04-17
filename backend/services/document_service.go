@@ -91,8 +91,20 @@ func (s *DocumentService) GetDocumentByID(songID string, docID string) (dto.Docu
 // If title_normalized is not explicitly provided, it is recalculated from the song's title.
 // Returns:
 //   - nil on success
+//   - errors.ErrResourceNotFound if the document does not exist
 //   - error if the update fails or the song does not exist
 func (s *DocumentService) UpdateDocument(songID, docID string, updates dto.UpdateDocumentRequest) error {
+
+	song, err := s.songRepo.GetSongByID(songID)
+	if err != nil {
+		return fmt.Errorf("retrieving song for update of document %s: %w", docID, err)
+	}
+
+	_, err = s.repo.GetDocumentByID(songID, docID)
+	if err != nil {
+		return fmt.Errorf("checking existence of document %s: %w", docID, err)
+	}
+
 	updateMap := make(map[string]interface{})
 
 	if updates.Type != "" {
@@ -108,12 +120,8 @@ func (s *DocumentService) UpdateDocument(songID, docID string, updates dto.Updat
 		updateMap["audio_url"] = updates.AudioURL
 	}
 
-	// Calculamos title_normalized si no viene explícito
 	if _, ok := updateMap["title_normalized"]; !ok {
-		song, err := s.songRepo.GetSongByID(songID)
-		if err != nil {
-			return fmt.Errorf("retrieving song for update of document %s: %w", docID, err)
-		}
+
 		updateMap["title_normalized"] = utils.Normalize(song.Title)
 	}
 
@@ -129,8 +137,14 @@ func (s *DocumentService) UpdateDocument(songID, docID string, updates dto.Updat
 // DeleteDocument deletes a document identified by song ID and document ID.
 // Returns:
 //   - nil on success
+//   - errors.ErrResourceNotFound if the document does not exist
 //   - error if the deletion fails
 func (s *DocumentService) DeleteDocument(songID string, docID string) error {
+	_, err := s.repo.GetDocumentByID(songID, docID)
+	if err != nil {
+		return fmt.Errorf("checking existence of document %s: %w", docID, err)
+	}
+
 	if err := s.repo.DeleteDocument(songID, docID); err != nil {
 		return fmt.Errorf("deleting document %s for song %s: %w", docID, songID, err)
 	}
