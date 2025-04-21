@@ -1,202 +1,191 @@
 package integration_tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/stretchr/testify/suite"
 )
 
-type Document struct {
-	ID         string   `json:"id"`
-	SongID     string   `json:"song_id"`
-	Type       string   `json:"type"`
-	Instrument []string `json:"instrument"`
-	PDFURL     string   `json:"pdf_url"`
-	AudioURL   string   `json:"audio_url,omitempty"`
-	CreatedAt  string   `json:"created_at"`
-	UpdatedAt  string   `json:"updated_at"`
+type DocumentTestSuite struct {
+	IntegrationTestSuite
 }
 
-type GetDocumentResponse struct {
-	Data Document `json:"data"`
+func (s *DocumentTestSuite) SetupTest() {
+	err := ClearTestTables(s.DB)
+	s.Require().NoError(err)
+
+	err = SeedTestData(s.DB, s.TimeProvider)
+	s.Require().NoError(err)
 }
 
-type GetDocumentsResponse struct {
-	Data []Document `json:"data"`
-}
+func (s *DocumentTestSuite) TestGetDocumentsBySongID_ShouldReturnSeededDocuments() {
+	w := MakeRequest(s.Router, "GET", "/songs/queen-001/documents", nil, "")
+	s.Equal(http.StatusOK, w.Code)
 
-func TestGetDocumentsBySongID_ShouldReturnSeededDocuments(t *testing.T) {
-	w := MakeRequest("GET", "/songs/queen-001/documents", nil, "")
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var response GetDocumentsResponse
+	var response DocumentListResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
-	assert.Len(t, response.Data, 2)
+	s.Require().NoError(err)
+	s.Len(response.Data, 2)
 }
 
-func TestGetDocumentsBySongID_ShouldReturnEmptyList(t *testing.T) {
-	w := MakeRequest("GET", "/songs/non-existent-id/documents", nil, "")
-	assert.Equal(t, http.StatusOK, w.Code)
+func (s *DocumentTestSuite) TestGetDocumentsBySongID_ShouldReturnEmptyList() {
+	w := MakeRequest(s.Router, "GET", "/songs/non-existent-id/documents", nil, "")
+	s.Equal(http.StatusOK, w.Code)
 
-	var response GetDocumentsResponse
+	var response DocumentListResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
-	assert.Empty(t, response.Data)
+	s.Require().NoError(err)
+	s.Empty(response.Data)
 }
 
-func TestGetDocumentByID_ShouldReturnSeededDocument(t *testing.T) {
-	w := MakeRequest("GET", "/songs/queen-001/documents/doc-br-piano", nil, "")
-	assert.Equal(t, http.StatusOK, w.Code)
+func (s *DocumentTestSuite) TestGetDocumentByID_ShouldReturnSeededDocument() {
+	w := MakeRequest(s.Router, "GET", "/songs/queen-001/documents/doc-br-piano", nil, "")
+	s.Equal(http.StatusOK, w.Code)
 
-	var response GetDocumentResponse
+	var response DocumentDetailResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
-	assert.Equal(t, "doc-br-piano", response.Data.ID)
+	s.Require().NoError(err)
+	s.Equal("doc-br-piano", response.Data.ID)
 }
 
-func TestGetDocumentByID_ShouldReturn404(t *testing.T) {
-	w := MakeRequest("GET", "/songs/queen-001/documents/non-existent-id", nil, "")
-	assert.Equal(t, http.StatusNotFound, w.Code)
+func (s *DocumentTestSuite) TestGetDocumentByID_ShouldReturn404() {
+	w := MakeRequest(s.Router, "GET", "/songs/queen-001/documents/non-existent-id", nil, "")
+	s.Equal(http.StatusNotFound, w.Code)
 }
 
-func TestCreateDocument_ShouldSucceedWithJWT(t *testing.T) {
+func (s *DocumentTestSuite) TestCreateDocument_ShouldSucceedWithJWT() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{
-		"type": "partitura",
-		"instrument": ["violín"],
-		"pdf_url": "https://s3.test/test_violin.pdf"
-	}`
+	body, err := json.Marshal(ViolinScore)
+	s.Require().NoError(err)
 
-	w := MakeRequest("POST", "/songs/queen-001/documents", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusCreated, w.Code)
+	w := MakeRequest(s.Router, "POST", "/songs/queen-001/documents", bytes.NewReader(body), token)
+	s.Equal(http.StatusCreated, w.Code)
 
 	var res struct {
 		Message    string `json:"message"`
 		DocumentID string `json:"document_id"`
 	}
 	err = json.NewDecoder(w.Body).Decode(&res)
-	assert.NoError(t, err)
-	assert.Equal(t, "Document created successfully", res.Message)
-	assert.NotEmpty(t, res.DocumentID)
+	s.Require().NoError(err)
+	s.Equal("Document created successfully", res.Message)
+	s.NotEmpty(res.DocumentID)
 }
 
-func TestCreateDocument_ShouldReturn401WithoutToken(t *testing.T) {
-	payload := `{
-		"type": "partitura",
-		"instrument": ["guitarra"],
-		"pdf_url": "https://s3.test/test_guitar.pdf"
-	}`
+func (s *DocumentTestSuite) TestCreateDocument_ShouldReturn401WithoutToken() {
 
-	w := MakeRequest("POST", "/songs/queen-001/documents", strings.NewReader(payload), "")
-	w.Header().Set("Content-Type", "application/json")
+	body, err := json.Marshal(FluteScore)
+	s.Require().NoError(err)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	w := MakeRequest(s.Router, "POST", "/songs/queen-001/documents", bytes.NewReader(body), "")
+	s.Equal(http.StatusUnauthorized, w.Code)
 }
 
-func TestCreateDocument_ShouldReturn400ForInvalidJSON(t *testing.T) {
+func (s *DocumentTestSuite) TestCreateDocument_ShouldReturn400ForInvalidJSON() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{`
+	body, err := json.Marshal(InvalidJSONDocument)
+	s.Require().NoError(err)
 
-	w := MakeRequest("POST", "/songs/queen-001/documents", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	w := MakeRequest(s.Router, "POST", "/songs/queen-001/documents", bytes.NewReader(body), token)
+	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-func TestCreateDocument_ShouldReturn400ForInvalidFields(t *testing.T) {
+func (s *DocumentTestSuite) TestCreateDocument_ShouldReturn400ForInvalidFields() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{
-		"type": "",
-		"instrument": [],
-		"pdf_url": ""
-	}`
+	body, err := json.Marshal(InvalidFieldsDocument)
+	s.Require().NoError(err)
 
-	w := MakeRequest("POST", "/songs/queen-001/documents", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	w := MakeRequest(s.Router, "POST", "/songs/queen-001/documents", bytes.NewReader(body), token)
+	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-func TestUpdateDocument_ShouldSucceed(t *testing.T) {
+func (s *DocumentTestSuite) TestUpdateDocument_ShouldSucceed() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{"type": "tablatura"}`
+	body, err := json.Marshal(TablatureUpdate)
+	s.Require().NoError(err)
 
-	w := MakeRequest("PUT", "/songs/queen-001/documents/doc-br-piano", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
+	w := MakeRequest(s.Router, "PUT", "/songs/queen-001/documents/doc-br-piano", bytes.NewReader(body), token)
+	s.Equal(http.StatusOK, w.Code)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	getRes := MakeRequest(s.Router, "GET", "/songs/queen-001/documents/doc-br-piano", nil, "")
+	s.Equal(http.StatusOK, getRes.Code)
+
+	var getBody struct {
+		Data dto.DocumentResponseItem `json:"data"`
+	}
+	err = json.NewDecoder(getRes.Body).Decode(&getBody)
+	s.Require().NoError(err)
+	s.Equal(TablatureUpdate.Type, getBody.Data.Type)
+	s.ElementsMatch(TablatureUpdate.Instrument, getBody.Data.Instrument)
+	s.Equal(TablatureUpdate.PDFURL, getBody.Data.PDFURL)
+	s.Equal(TablatureUpdate.AudioURL, getBody.Data.AudioURL)
 }
 
-// func TestUpdateDocument_ShouldReturn404IfNotExists(t *testing.T) {
-// 	token, err := GenerateTestJWT("admin")
-// 	assert.NoError(t, err)
-
-// 	payload := `{"type": "partitura"}`
-
-// 	w := MakeRequest("PUT", "/documents/non-existent-id", strings.NewReader(payload), token)
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	assert.Equal(t, http.StatusNotFound, w.Code)
-// }
-
-func TestUpdateDocument_ShouldReturn400ForInvalidJSON(t *testing.T) {
+func (s *DocumentTestSuite) TestUpdateDocument_ShouldReturn400ForInvalidJSON() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{"type":`
+	body, err := json.Marshal(InvalidJSONDocument)
+	s.Require().NoError(err)
 
-	w := MakeRequest("PUT", "/songs/queen-001/documents/doc-br-voice", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	w := MakeRequest(s.Router, "PUT", "/songs/queen-001/documents/doc-br-voice", bytes.NewReader(body), token)
+	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-func TestDeleteDocument_ShouldSucceed(t *testing.T) {
+func (s *DocumentTestSuite) TestUpdateDocument_ShouldReturn404IfNotExists() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{
-		"type": "partitura",
-		"instrument": ["flauta"],
-		"pdf_url": "https://s3.test/test_flute.pdf"
-	}`
-	createRes := MakeRequest("POST", "/songs/queen-001/documents", strings.NewReader(payload), token)
-	createRes.Header().Set("Content-Type", "application/json")
+	body, err := json.Marshal(TablatureUpdate)
+	s.Require().NoError(err)
 
+	w := MakeRequest(s.Router, "PUT", "/songs/queen-001/documents/nonexistent-id", bytes.NewReader(body), token)
+	s.Equal(http.StatusNotFound, w.Code)
+}
+
+func (s *DocumentTestSuite) TestDeleteDocument_ShouldSucceed() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
+
+	body, err := json.Marshal(FluteScore)
+	s.Require().NoError(err)
+
+	createRes := MakeRequest(s.Router, "POST", "/songs/queen-001/documents", bytes.NewReader(body), token)
 	var createBody struct {
 		DocumentID string `json:"document_id"`
 	}
 	err = json.NewDecoder(createRes.Body).Decode(&createBody)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, createBody.DocumentID)
+	s.Require().NoError(err)
+	s.NotEmpty(createBody.DocumentID)
 
-	deleteRes := MakeRequest("DELETE", "/songs/queen-001/documents/"+createBody.DocumentID, nil, token)
-	assert.Equal(t, http.StatusOK, deleteRes.Code)
+	deleteRes := MakeRequest(s.Router, "DELETE", "/songs/queen-001/documents/"+createBody.DocumentID, nil, token)
+	s.Equal(http.StatusOK, deleteRes.Code)
 }
 
-// func TestDeleteDocument_ShouldReturn404IfNotExists(t *testing.T) {
-// 	token, err := GenerateTestJWT("admin")
-// 	assert.NoError(t, err)
+func (s *DocumentTestSuite) TestDeleteDocument_ShouldReturn401WithoutToken() {
+	w := MakeRequest(s.Router, "DELETE", "/songs/queen-001/documents/doc-br-voice", nil, "")
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
 
-// 	w := MakeRequest("DELETE", "/documents/non-existent-id", nil, token)
-// 	assert.Equal(t, http.StatusNotFound, w.Code)
-// }
+func (s *DocumentTestSuite) TestDeleteDocument_ShouldReturn404IfNotExists() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
 
-func TestDeleteDocument_ShouldReturn401WithoutToken(t *testing.T) {
-	w := MakeRequest("DELETE", "/songs/queen-001/documents/doc-br-voice", nil, "")
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	w := MakeRequest(s.Router, "DELETE", "/songs/queen-001/documents/nonexistent-id", nil, token)
+	s.Equal(http.StatusNotFound, w.Code)
+}
+
+func TestDocumentSuite(t *testing.T) {
+	suite.Run(t, new(DocumentTestSuite))
 }
