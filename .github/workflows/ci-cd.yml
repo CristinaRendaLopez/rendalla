@@ -46,6 +46,7 @@ jobs:
           - 8000:8000
 
     env:
+      ENV: test
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_REGION: eu-north-1
