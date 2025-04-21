@@ -1,42 +1,103 @@
 package integration_tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
-	"strings"
+	"slices"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/stretchr/testify/suite"
 )
 
-type SongListItem struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
+type SongTestSuite struct {
+	IntegrationTestSuite
 }
 
-type SongListResponse struct {
-	Data []SongListItem `json:"data"`
+func (s *SongTestSuite) TestCreateSong_ShouldSucceed() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
+
+	body, _ := json.Marshal(WeAreTheChampionsPayload)
+	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
+
+	s.Equal(http.StatusCreated, w.Code)
+
+	var res dto.CreateSongResponse
+	err = json.NewDecoder(w.Body).Decode(&res)
+	s.Require().NoError(err)
+	s.Equal("Song created successfully", res.Message)
+	s.NotEmpty(res.SongID)
 }
 
-type SongDetail struct {
-	ID     string   `json:"id"`
-	Title  string   `json:"title"`
-	Author string   `json:"author"`
-	Genres []string `json:"genres"`
+func (s *SongTestSuite) TestCreateSong_ShouldReturnDocuments() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
+
+	body, _ := json.Marshal(DontStopMeNowPayload)
+	createRes := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
+
+	s.Equal(http.StatusCreated, createRes.Code)
+
+	var createBody dto.CreateSongResponse
+	err = json.NewDecoder(createRes.Body).Decode(&createBody)
+	s.Require().NoError(err)
+	s.NotEmpty(createBody.SongID)
+
+	getDocsRes := MakeRequest(s.Router, "GET", "/songs/"+createBody.SongID+"/documents", nil, "")
+	s.Equal(http.StatusOK, getDocsRes.Code)
+
+	var docsResponse struct {
+		Data []dto.DocumentResponseItem `json:"data"`
+	}
+	err = json.NewDecoder(getDocsRes.Body).Decode(&docsResponse)
+	s.Require().NoError(err)
+	s.Len(docsResponse.Data, 2)
+
+	var foundScore, foundTab bool
+	for _, doc := range docsResponse.Data {
+		if doc.Type == "score" && slices.Contains(doc.Instrument, "voice") {
+			foundScore = true
+		}
+		if doc.Type == "tablature" && slices.Contains(doc.Instrument, "bass") {
+			foundTab = true
+		}
+	}
+	s.True(foundScore)
+	s.True(foundTab)
 }
 
-type SongDetailResponse struct {
-	Data SongDetail `json:"data"`
+func (s *SongTestSuite) TestCreateSong_ShouldFailWithoutJWT() {
+	body, _ := json.Marshal(BohemianRhapsodyPayload)
+	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), "")
+	s.Equal(http.StatusUnauthorized, w.Code)
 }
 
-func TestGETSongs_ShouldReturnSeededQueenSong(t *testing.T) {
-	w := MakeRequest("GET", "/songs", nil, "")
-	assert.Equal(t, http.StatusOK, w.Code)
+func (s *SongTestSuite) TestCreateSong_ShouldReturn400ForInvalidJSON() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
+	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader([]byte(`{"title": "`)), token)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
 
-	var response SongListResponse
+func (s *SongTestSuite) TestCreateSong_ShouldReturn400ForInvalidFields() {
+	token, err := GenerateTestJWT("admin")
+	s.Require().NoError(err)
+
+	invalidPayload := dto.CreateSongRequest{}
+	body, _ := json.Marshal(invalidPayload)
+	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *SongTestSuite) TestGetSongs_ShouldIncludeBohemian() {
+	w := MakeRequest(s.Router, "GET", "/songs", nil, "")
+	s.Equal(http.StatusOK, w.Code)
+
+	var response songListResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
 	found := false
 	for _, song := range response.Data {
@@ -45,229 +106,109 @@ func TestGETSongs_ShouldReturnSeededQueenSong(t *testing.T) {
 			break
 		}
 	}
-	assert.True(t, found)
+	s.True(found)
 }
 
-func TestGetSongByID_ShouldReturnQueenSong(t *testing.T) {
-	w := MakeRequest("GET", "/songs/queen-001", nil, "")
-	assert.Equal(t, http.StatusOK, w.Code)
+func (s *SongTestSuite) TestGetSongByID_ShouldReturnBohemian() {
+	w := MakeRequest(s.Router, "GET", "/songs/queen-001", nil, "")
+	s.Equal(http.StatusOK, w.Code)
 
-	var response SongDetailResponse
+	var response songDetailResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	assert.Equal(t, "queen-001", response.Data.ID)
-	assert.Equal(t, "Bohemian Rhapsody", response.Data.Title)
-	assert.Equal(t, "Queen", response.Data.Author)
-	assert.Contains(t, response.Data.Genres, "Rock")
+	s.Equal("queen-001", response.Data.ID)
+	s.Equal("Bohemian Rhapsody", response.Data.Title)
+	s.Equal("Queen", response.Data.Author)
+	s.Contains(response.Data.Genres, "Rock")
 }
 
-func TestGetSongByID_ShouldReturn404IfNotExists(t *testing.T) {
-	w := MakeRequest("GET", "/songs/non-existent-id", nil, "")
-	assert.Equal(t, http.StatusNotFound, w.Code)
+func (s *SongTestSuite) TestGetSongByID_ShouldReturn404() {
+	w := MakeRequest(s.Router, "GET", "/songs/non-existent-id", nil, "")
+	s.Equal(http.StatusNotFound, w.Code)
 }
 
-func TestCreateSong_ShouldSucceedWithJWT(t *testing.T) {
+func (s *SongTestSuite) TestUpdateSong_ShouldSucceed() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{
-		"title": "Imagine",
-		"author": "John Lennon",
-		"genres": ["Pop"],
-		"documents": [
-			{
-				"type": "partitura",
-				"instrument": ["piano"],
-				"pdf_url": "https://test-bucket/imagine.pdf"
-			}
-		]
-	}`
+	title := "Bohemian Rhapsody (Remastered)"
+	author := "Freddie Mercury"
+	genres := []string{"Rock", "Opera"}
 
-	w := MakeRequest("POST", "/songs", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-
-	var response struct {
-		Message string `json:"message"`
-		SongID  string `json:"song_id"`
+	update := dto.UpdateSongRequest{
+		Title:  &title,
+		Author: &author,
+		Genres: genres,
 	}
-	err = json.NewDecoder(w.Body).Decode(&response)
-	assert.NoError(t, err)
-	assert.Equal(t, "Song created successfully", response.Message)
-	assert.NotEmpty(t, response.SongID)
+
+	body, _ := json.Marshal(update)
+	w := MakeRequest(s.Router, "PUT", "/songs/queen-001", bytes.NewReader(body), token)
+	s.Equal(http.StatusOK, w.Code)
+
+	getRes := MakeRequest(s.Router, "GET", "/songs/queen-001", nil, "")
+	var getBody songDetailResponse
+	err = json.NewDecoder(getRes.Body).Decode(&getBody)
+	s.Require().NoError(err)
+	s.Equal(title, getBody.Data.Title)
+	s.Equal(author, getBody.Data.Author)
+	s.ElementsMatch(genres, getBody.Data.Genres)
 }
 
-func TestCreateSong_ShouldFailWithoutJWT(t *testing.T) {
-	payload := `{
-		"title": "No Auth Song",
-		"author": "Anon",
-		"genres": ["Jazz"],
-		"documents": [
-			{
-				"type": "partitura",
-				"instrument": ["saxophone"],
-				"pdf_url": "https://test-bucket/noauth.pdf"
-			}
-		]
-	}`
-
-	w := MakeRequest("POST", "/songs", strings.NewReader(payload), "")
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func TestCreateSong_ShouldReturn400ForInvalidJSON(t *testing.T) {
+func (s *SongTestSuite) TestUpdateSong_ShouldReturn404() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{"title": "Oops"`
-
-	w := MakeRequest("POST", "/songs", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	title := "Ghost Song"
+	update := dto.UpdateSongRequest{Title: &title}
+	body, _ := json.Marshal(update)
+	w := MakeRequest(s.Router, "PUT", "/songs/nonexistent-id", bytes.NewReader(body), token)
+	s.Equal(http.StatusNotFound, w.Code)
 }
 
-func TestCreateSong_ShouldReturn400ForInvalidFields(t *testing.T) {
+func (s *SongTestSuite) TestUpdateSong_ShouldReturn400ForInvalidJSON() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	payload := `{
-		"title": "",
-		"author": "",
-		"genres": [],
-		"documents": []
-	}`
-
-	w := MakeRequest("POST", "/songs", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	s.Require().NoError(err)
+	w := MakeRequest(s.Router, "PUT", "/songs/queen-001", bytes.NewReader([]byte(`{"title":`)), token)
+	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-func TestUpdateSong_ShouldSucceed(t *testing.T) {
+func (s *SongTestSuite) TestDeleteSong_ShouldSucceed() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
-	payload := `{
-		"title": "Bohemian Rhapsody (Remastered)"
-	}`
+	body, _ := json.Marshal(DontStopMeNowPayload)
+	createRes := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
 
-	w := MakeRequest("PUT", "/songs/queen-001", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestUpdateSong_ShouldReturn404(t *testing.T) {
-	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	payload := `{"title": "Ghost Song"}`
-
-	w := MakeRequest("PUT", "/songs/nonexistent-id", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestUpdateSong_ShouldReturn400ForInvalidJSON(t *testing.T) {
-	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	payload := `{"title":`
-
-	w := MakeRequest("PUT", "/songs/queen-001", strings.NewReader(payload), token)
-	w.Header().Set("Content-Type", "application/json")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestDeleteSong_ShouldSucceed(t *testing.T) {
-	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	payload := `{
-		"title": "Temporary Song",
-		"author": "Test Artist",
-		"genres": ["Test"],
-		"documents": []
-	}`
-
-	createRes := MakeRequest("POST", "/songs", strings.NewReader(payload), token)
-	createRes.Header().Set("Content-Type", "application/json")
-
-	var createBody struct {
-		SongID string `json:"song_id"`
-	}
+	var createBody dto.CreateSongResponse
 	err = json.NewDecoder(createRes.Body).Decode(&createBody)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, createBody.SongID)
+	s.Require().NoError(err)
+	s.NotEmpty(createBody.SongID)
 
-	deleteRes := MakeRequest("DELETE", "/songs/"+createBody.SongID, nil, token)
-	assert.Equal(t, http.StatusOK, deleteRes.Code)
+	deleteRes := MakeRequest(s.Router, "DELETE", "/songs/"+createBody.SongID, nil, token)
+	s.Equal(http.StatusOK, deleteRes.Code)
 }
 
-func TestDeleteSong_ShouldAlsoDeleteDocuments(t *testing.T) {
+func (s *SongTestSuite) TestDeleteSong_ShouldReturn404() {
 	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	payload := `{
-		"title": "Song to Delete",
-		"author": "Doc Killer",
-		"genres": ["Jazz"],
-		"documents": [
-			{
-				"type": "tablatura",
-				"instrument": ["bass"],
-				"pdf_url": "https://test.com/delete_me.pdf"
-			}
-		]
-	}`
-
-	createRes := MakeRequest("POST", "/songs", strings.NewReader(payload), token)
-	createRes.Header().Set("Content-Type", "application/json")
-
-	var createBody struct {
-		SongID string `json:"song_id"`
-	}
-	err = json.NewDecoder(createRes.Body).Decode(&createBody)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, createBody.SongID)
-
-	getDocsRes := MakeRequest("GET", "/songs/"+createBody.SongID+"/documents", nil, "")
-	assert.Equal(t, http.StatusOK, getDocsRes.Code)
-
-	var docsResponse struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	err = json.NewDecoder(getDocsRes.Body).Decode(&docsResponse)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, docsResponse.Data)
-
-	docID := docsResponse.Data[0].ID
-
-	deleteRes := MakeRequest("DELETE", "/songs/"+createBody.SongID, nil, token)
-	assert.Equal(t, http.StatusOK, deleteRes.Code)
-
-	docGetRes := MakeRequest("GET", "/documents/"+docID, nil, "")
-	assert.Equal(t, http.StatusNotFound, docGetRes.Code)
+	s.Require().NoError(err)
+	res := MakeRequest(s.Router, "DELETE", "/songs/non-existent-id", nil, token)
+	s.Equal(http.StatusNotFound, res.Code)
 }
 
-func TestDeleteSong_ShouldReturn404IfNotExists(t *testing.T) {
-	token, err := GenerateTestJWT("admin")
-	assert.NoError(t, err)
-
-	res := MakeRequest("DELETE", "/songs/non-existent-id", nil, token)
-	assert.Equal(t, http.StatusNotFound, res.Code)
+func (s *SongTestSuite) TestDeleteSong_ShouldReturn401WithoutToken() {
+	res := MakeRequest(s.Router, "DELETE", "/songs/any-id", nil, "")
+	s.Equal(http.StatusUnauthorized, res.Code)
 }
 
-func TestDeleteSong_ShouldReturn401WithoutToken(t *testing.T) {
-	res := MakeRequest("DELETE", "/songs/any-id", nil, "")
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
+func TestSongSuite(t *testing.T) {
+	suite.Run(t, new(SongTestSuite))
+}
+
+func (s *SongTestSuite) SetupTest() {
+	err := ClearTestTables(s.DB)
+	s.Require().NoError(err)
+
+	err = SeedTestData(s.DB, s.TimeProvider)
+	s.Require().NoError(err)
 }

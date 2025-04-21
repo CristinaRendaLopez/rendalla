@@ -87,3 +87,38 @@ func waitForTableToBeActive(svc *dynamodb.DynamoDB, tableName string) error {
 		TableName: aws.String(tableName),
 	})
 }
+
+func ClearTestTables(db *dynamo.DB) error {
+	tables := []string{bootstrap.SongTableName, bootstrap.DocumentTableName}
+
+	for _, tableName := range tables {
+		table := db.Table(tableName)
+
+		var items []map[string]interface{}
+		if err := table.Scan().All(&items); err != nil {
+			logrus.WithError(err).Errorf("Failed to scan items from table %s", tableName)
+			return err
+		}
+
+		for _, item := range items {
+			switch tableName {
+			case bootstrap.SongTableName:
+				if id, ok := item["id"].(string); ok {
+					if err := table.Delete("id", id).Run(); err != nil {
+						logrus.WithError(err).Warnf("Failed to delete item %s from %s", id, tableName)
+					}
+				}
+			case bootstrap.DocumentTableName:
+				songID, ok1 := item["song_id"].(string)
+				id, ok2 := item["id"].(string)
+				if ok1 && ok2 {
+					if err := table.Delete("song_id", songID).Range("id", id).Run(); err != nil {
+						logrus.WithError(err).Warnf("Failed to delete document %s for song %s", id, songID)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
