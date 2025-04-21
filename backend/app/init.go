@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/router"
@@ -34,11 +36,12 @@ type AppConfig struct {
 // Returns:
 //   - a *gin.Engine instance ready to serve HTTP requests
 func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
+
 	// Initialize repositories
 	documentRepo := repository.NewDynamoDocumentRepository(db)
 	songRepo := repository.NewDynamoSongRepository(db, documentRepo)
 	searchRepo := repository.NewDynamoSearchRepository(db, documentRepo)
-	authRepo := repository.NewAWSAuthRepository()
+	authRepo := repository.NewAWSAuthRepository(os.Getenv("ENV"))
 
 	// Initialize services
 	idGen := &utils.UUIDGenerator{}

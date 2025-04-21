@@ -16,8 +16,25 @@ import (
 // The secret must be a JSON object containing "username" and "password" fields.
 type AWSAuthRepository struct{}
 
-// NewAWSAuthRepository returns a new instance of AWSAuthRepository.
-func NewAWSAuthRepository() *AWSAuthRepository {
+// NewAWSAuthRepository returns an appropriate AuthRepository implementation based on the environment.
+//
+// Parameters:
+//   - env: the current runtime environment (e.g., "test", "production").
+//
+// Behavior:
+//   - If env == "test", returns a FakeAuthRepository with fixed credentials for testing purposes.
+//   - For all other environments, returns an AWSAuthRepository that fetches credentials from AWS Secrets Manager.
+func NewAWSAuthRepository(env string) AuthRepository {
+	if env == "test" {
+		hashed := "$2a$10$xCIMIA6eYNX3lfarOEojqezWiDCMvxeJsA3kNAnNx7TX8d59sMjPy" // bcrypt("test")
+		return &FakeAuthRepository{
+			Credentials: AuthCredentials{
+				Username: "test",
+				Password: hashed,
+			},
+		}
+	}
+
 	return &AWSAuthRepository{}
 }
 
