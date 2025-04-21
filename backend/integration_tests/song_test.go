@@ -19,7 +19,9 @@ func (s *SongTestSuite) TestCreateSong_ShouldSucceed() {
 	token, err := GenerateTestJWT("admin")
 	s.Require().NoError(err)
 
-	body, _ := json.Marshal(WeAreTheChampionsPayload)
+	body, err := json.Marshal(WeAreTheChampionsPayload)
+	s.Require().NoError(err)
+
 	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
 
 	s.Equal(http.StatusCreated, w.Code)
@@ -35,7 +37,9 @@ func (s *SongTestSuite) TestCreateSong_ShouldReturnDocuments() {
 	token, err := GenerateTestJWT("admin")
 	s.Require().NoError(err)
 
-	body, _ := json.Marshal(DontStopMeNowPayload)
+	body, err := json.Marshal(DontStopMeNowPayload)
+	s.Require().NoError(err)
+
 	createRes := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
 
 	s.Equal(http.StatusCreated, createRes.Code)
@@ -69,7 +73,9 @@ func (s *SongTestSuite) TestCreateSong_ShouldReturnDocuments() {
 }
 
 func (s *SongTestSuite) TestCreateSong_ShouldFailWithoutJWT() {
-	body, _ := json.Marshal(BohemianRhapsodyPayload)
+	body, err := json.Marshal(BohemianRhapsodyPayload)
+	s.Require().NoError(err)
+
 	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), "")
 	s.Equal(http.StatusUnauthorized, w.Code)
 }
@@ -86,7 +92,9 @@ func (s *SongTestSuite) TestCreateSong_ShouldReturn400ForInvalidFields() {
 	s.Require().NoError(err)
 
 	invalidPayload := dto.CreateSongRequest{}
-	body, _ := json.Marshal(invalidPayload)
+	body, err := json.Marshal(invalidPayload)
+	s.Require().NoError(err)
+
 	w := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
 	s.Equal(http.StatusBadRequest, w.Code)
 }
@@ -142,7 +150,9 @@ func (s *SongTestSuite) TestUpdateSong_ShouldSucceed() {
 		Genres: genres,
 	}
 
-	body, _ := json.Marshal(update)
+	body, err := json.Marshal(update)
+	s.Require().NoError(err)
+
 	w := MakeRequest(s.Router, "PUT", "/songs/queen-001", bytes.NewReader(body), token)
 	s.Equal(http.StatusOK, w.Code)
 
@@ -161,7 +171,9 @@ func (s *SongTestSuite) TestUpdateSong_ShouldReturn404() {
 
 	title := "Ghost Song"
 	update := dto.UpdateSongRequest{Title: &title}
-	body, _ := json.Marshal(update)
+	body, err := json.Marshal(update)
+	s.Require().NoError(err)
+
 	w := MakeRequest(s.Router, "PUT", "/songs/nonexistent-id", bytes.NewReader(body), token)
 	s.Equal(http.StatusNotFound, w.Code)
 }
@@ -177,7 +189,9 @@ func (s *SongTestSuite) TestDeleteSong_ShouldSucceed() {
 	token, err := GenerateTestJWT("admin")
 	s.Require().NoError(err)
 
-	body, _ := json.Marshal(DontStopMeNowPayload)
+	body, err := json.Marshal(DontStopMeNowPayload)
+	s.Require().NoError(err)
+
 	createRes := MakeRequest(s.Router, "POST", "/songs", bytes.NewReader(body), token)
 
 	var createBody dto.CreateSongResponse
