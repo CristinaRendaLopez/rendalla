@@ -11,21 +11,22 @@ import (
 func SeedTestData(db *dynamo.DB, timeProvider utils.TimeProvider) error {
 	now := timeProvider.Now()
 
-	song := models.Song{
-		ID:         "queen-001",
-		Title:      "Bohemian Rhapsody",
-		Author:     "Queen",
-		Genres:     []string{"Rock", "Progressive"},
-		YoutubeURL: "https://youtube.com/watch?v=fJ9rUzIMcZQ",
-		CreatedAt:  now,
-		UpdatedAt:  now,
+	bohemianRhapsody := models.Song{
+		ID:              "queen-001",
+		Title:           "Bohemian Rhapsody",
+		TitleNormalized: utils.Normalize("Bohemian Rhapsody"),
+		Author:          "Queen",
+		Genres:          []string{"Rock", "Progressive"},
+		YoutubeURL:      "https://youtube.com/watch?v=fJ9rUzIMcZQ",
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
-	docs := []models.Document{
+	bohemianDocuments := []models.Document{
 		{
 			ID:         "doc-br-piano",
-			SongID:     song.ID,
-			Type:       "partitura",
+			SongID:     bohemianRhapsody.ID,
+			Type:       "score",
 			Instrument: []string{"piano"},
 			PDFURL:     "https://s3.test/bohemian_rhapsody_piano.pdf",
 			CreatedAt:  now,
@@ -33,7 +34,7 @@ func SeedTestData(db *dynamo.DB, timeProvider utils.TimeProvider) error {
 		},
 		{
 			ID:         "doc-br-voice",
-			SongID:     song.ID,
+			SongID:     bohemianRhapsody.ID,
 			Type:       "tablatura",
 			Instrument: []string{"voz"},
 			PDFURL:     "https://s3.test/bohemian_rhapsody_voz.pdf",
@@ -42,14 +43,47 @@ func SeedTestData(db *dynamo.DB, timeProvider utils.TimeProvider) error {
 		},
 	}
 
-	if err := db.Table(bootstrap.SongTableName).Put(song).Run(); err != nil {
-		logrus.WithError(err).Error("Failed to insert test song")
-		return err
+	dontStopMeNow := models.Song{
+		ID:              "queen-002",
+		Title:           "Don't Stop Me Now",
+		TitleNormalized: utils.Normalize("Don't Stop Me Now"),
+		Author:          "Queen",
+		Genres:          []string{"Rock", "Pop"},
+		YoutubeURL:      "https://youtube.com/watch?v=HgzGwKwLmgM",
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
-	for _, doc := range docs {
+	dontStopMeNowDocs := []models.Document{
+		{
+			ID:         "doc-dsmn-guitar",
+			SongID:     dontStopMeNow.ID,
+			Type:       "score",
+			Instrument: []string{"guitar"},
+			PDFURL:     "https://s3.test/dontstop_guitar.pdf",
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		},
+	}
+
+	if err := db.Table(bootstrap.SongTableName).Put(bohemianRhapsody).Run(); err != nil {
+		logrus.WithError(err).Error("Failed to insert Bohemian Rhapsody")
+		return err
+	}
+	for _, doc := range bohemianDocuments {
 		if err := db.Table(bootstrap.DocumentTableName).Put(doc).Run(); err != nil {
-			logrus.WithField("doc_id", doc.ID).WithError(err).Error("Failed to insert document")
+			logrus.WithField("doc_id", doc.ID).WithError(err).Error("Failed to insert Bohemian document")
+			return err
+		}
+	}
+
+	if err := db.Table(bootstrap.SongTableName).Put(dontStopMeNow).Run(); err != nil {
+		logrus.WithError(err).Error("Failed to insert Don't Stop Me Now")
+		return err
+	}
+	for _, doc := range dontStopMeNowDocs {
+		if err := db.Table(bootstrap.DocumentTableName).Put(doc).Run(); err != nil {
+			logrus.WithField("doc_id", doc.ID).WithError(err).Error("Failed to insert Don't Stop Me Now document")
 			return err
 		}
 	}
