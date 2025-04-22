@@ -10,3 +10,8 @@ func (m *MockTimeProvider) Now() string {
 	args := m.Called()
 	return args.String(0)
 }
+
+func (m *MockTimeProvider) NowUnix() int64 {
+	args := m.Called()
+	return args.Get(0).(int64)
+}

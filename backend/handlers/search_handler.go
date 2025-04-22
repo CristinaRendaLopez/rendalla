@@ -3,39 +3,45 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
+// SearchHandler handles HTTP requests for searching songs and documents.
+// It delegates the business logic to the SearchServiceInterface.
 type SearchHandler struct {
 	searchService services.SearchServiceInterface
 }
 
+// NewSearchHandler returns a new instance of SearchHandler.
 func NewSearchHandler(searchService services.SearchServiceInterface) *SearchHandler {
 	return &SearchHandler{searchService: searchService}
 }
 
-func (h *SearchHandler) SearchSongsByTitleHandler(c *gin.Context) {
-	title, ok := utils.RequireQuery(c, "title")
-	if !ok {
-		return
-	}
-
+// ListSongsHandler handles GET /songs/search.
+// Supports filtering by title and sorting/pagination options.
+func (h *SearchHandler) ListSongsHandler(c *gin.Context) {
+	title := c.Query("title")
+	sortField := c.Query("sort")
+	sortOrder := c.Query("order")
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
-	songs, nextKey, err := h.searchService.SearchSongsByTitle(title, limit, nextToken)
+	songs, nextKey, err := h.searchService.ListSongs(title, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error searching for songs")
+		errors.HandleAPIError(c, err, "Failed to list songs")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"title":      title,
+		"sort":       sortField,
+		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Searched songs by title")
+	}).Info("Songs listed successfully with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       songs,
@@ -43,51 +49,31 @@ func (h *SearchHandler) SearchSongsByTitleHandler(c *gin.Context) {
 	})
 }
 
-func (h *SearchHandler) SearchDocumentsByTitleHandler(c *gin.Context) {
-	title, ok := utils.RequireQuery(c, "title")
-	if !ok {
-		return
-	}
-
+// ListDocumentsHandler handles GET /documents/search.
+// Supports filtering by title, instrument, and type, as well as sorting and pagination.
+func (h *SearchHandler) ListDocumentsHandler(c *gin.Context) {
+	title := c.Query("title")
+	instrument := c.Query("instrument")
+	docType := c.Query("type")
+	sortField := c.Query("sort")
+	sortOrder := c.Query("order")
 	limit, nextToken := utils.ExtractPaginationParams(c)
 
-	documents, nextKey, err := h.searchService.SearchDocumentsByTitle(title, limit, nextToken)
+	documents, nextKey, err := h.searchService.ListDocuments(title, instrument, docType, sortField, sortOrder, limit, nextToken)
 	if err != nil {
-		utils.HandleAPIError(c, err, "Error searching for documents")
+		errors.HandleAPIError(c, err, "Failed to list documents")
 		return
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"title":      title,
-		"limit":      limit,
-		"next_token": nextToken,
-	}).Info("Searched documents by title")
-
-	c.JSON(http.StatusOK, gin.H{
-		"data":       documents,
-		"next_token": nextKey,
-	})
-}
-
-func (h *SearchHandler) FilterDocumentsByInstrumentHandler(c *gin.Context) {
-	instrument, ok := utils.RequireQuery(c, "instrument")
-	if !ok {
-		return
-	}
-
-	limit, nextToken := utils.ExtractPaginationParams(c)
-
-	documents, nextKey, err := h.searchService.FilterDocumentsByInstrument(instrument, limit, nextToken)
-	if err != nil {
-		utils.HandleAPIError(c, err, "Error filtering documents by instrument")
-		return
-	}
-
-	logrus.WithFields(logrus.Fields{
 		"instrument": instrument,
+		"type":       docType,
+		"sort":       sortField,
+		"order":      sortOrder,
 		"limit":      limit,
 		"next_token": nextToken,
-	}).Info("Filtered documents by instrument")
+	}).Info("Documents listed successfully with filters")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":       documents,

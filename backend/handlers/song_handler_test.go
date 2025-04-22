@@ -1,14 +1,16 @@
 package handlers_test
 
 import (
-	"errors"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -21,262 +23,386 @@ func setupSongHandlerTest() (*handlers.SongHandler, *mocks.MockSongService) {
 	return handler, mockService
 }
 
-func TestGetAllSongsHandler_Success(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
+func DecodeJSONResponse[T any](w *httptest.ResponseRecorder) (T, error) {
+	var body T
+	err := json.Unmarshal(w.Body.Bytes(), &body)
+	return body, err
+}
 
-	expectedSongs := []models.Song{
-		{ID: "1", Title: "Bohemian Rhapsody", Author: "Queen"},
-		{ID: "2", Title: "Imagine", Author: "John Lennon"},
+func TestCreateSongHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		setupMock      bool
+		mockReturnID   string
+		mockReturnErr  error
+		expectedCode   int
+		expectedSongID string
+	}{
+		{
+			name:           "success",
+			input:          SongValidJSON,
+			setupMock:      true,
+			mockReturnID:   "123",
+			mockReturnErr:  nil,
+			expectedCode:   http.StatusCreated,
+			expectedSongID: "123",
+		},
+		{
+			name:         "invalid JSON",
+			input:        SongInvalidJSON,
+			setupMock:    false,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:          "validation fails",
+			input:         SongInvalidDataJSON,
+			setupMock:     true,
+			mockReturnID:  "",
+			mockReturnErr: errors.ErrValidationFailed,
+			expectedCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "internal service error",
+			input:         SongValidJSON,
+			setupMock:     true,
+			mockReturnID:  "",
+			mockReturnErr: errors.ErrInternalServer,
+			expectedCode:  http.StatusInternalServerError,
+		},
 	}
-	mockService.On("GetAllSongs").Return(expectedSongs, nil)
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs", nil)
-	handler.GetAllSongsHandler(c)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSongHandlerTest()
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Bohemian Rhapsody")
-	mockService.AssertExpectations(t)
+			if tt.setupMock {
+				mockService.
+					On("CreateSongWithDocuments", mock.Anything, mock.Anything).
+					Return(tt.mockReturnID, tt.mockReturnErr)
+			}
+
+			c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(tt.input))
+			handler.CreateSongHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusCreated {
+
+				response, err := DecodeJSONResponse[dto.CreateSongResponse](w)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedSongID, response.SongID)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
 }
 
-func TestGetAllSongsHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-	mockService.On("GetAllSongs").Return([]models.Song{}, assert.AnError)
+func TestGetAllSongsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		mockSongs    []dto.SongResponseItem
+		mockError    error
+		expectedCode int
+		expectedData []dto.SongResponseItem
+	}{
+		{
+			name:         "success with songs",
+			mockSongs:    []dto.SongResponseItem{{ID: "1", Title: "Don't Stop Me Now", Author: "Queen", Genres: []string{"rock"}}},
+			mockError:    nil,
+			expectedCode: http.StatusOK,
+			expectedData: []dto.SongResponseItem{{ID: "1", Title: "Don't Stop Me Now", Author: "Queen", Genres: []string{"rock"}}},
+		},
+		{
+			name:         "success with empty list",
+			mockSongs:    []dto.SongResponseItem{},
+			mockError:    nil,
+			expectedCode: http.StatusOK,
+			expectedData: []dto.SongResponseItem{},
+		},
+		{
+			name:         "internal service error",
+			mockSongs:    nil,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs", nil)
-	handler.GetAllSongsHandler(c)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSongHandlerTest()
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	mockService.AssertExpectations(t)
+			mockService.
+				On("GetAllSongs").
+				Return(tt.mockSongs, tt.mockError)
+
+			c, w := utils.CreateTestContext(http.MethodGet, "/songs", nil)
+			handler.GetAllSongsHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusOK {
+				response := struct {
+					Data []dto.SongResponseItem `json:"data"`
+				}{}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedData, response.Data)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
 }
 
-func TestGetSongByIDHandler_Success(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-	mockService.On("GetSongByID", "1").Return(&models.Song{ID: "1", Title: "Song"}, nil)
+func TestGetSongByIDHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		songID       string
+		setupParam   bool
+		mockResult   dto.SongResponseItem
+		mockError    error
+		expectedCode int
+	}{
+		{
+			name:       "success",
+			songID:     "1",
+			setupParam: true,
+			mockResult: dto.SongResponseItem{
+				ID:     "1",
+				Title:  "Radio Ga Ga",
+				Author: "Queen",
+				Genres: []string{"pop", "rock"},
+			},
+			mockError:    nil,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "missing song_id parameter",
+			setupParam:   false,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "song not found",
+			songID:       "999",
+			setupParam:   true,
+			mockError:    errors.ErrResourceNotFound,
+			expectedCode: http.StatusNotFound,
+		},
+		{
+			name:         "internal service error",
+			songID:       "1",
+			setupParam:   true,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSongHandlerTest()
 
-	handler.GetSongByIDHandler(c)
+			if tt.setupParam {
+				mockService.
+					On("GetSongByID", tt.songID).
+					Return(tt.mockResult, tt.mockError)
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Song")
-	mockService.AssertExpectations(t)
+			reqPath := "/songs"
+			if tt.setupParam {
+				reqPath = "/songs/" + tt.songID
+			}
+
+			c, w := utils.CreateTestContext(http.MethodGet, reqPath, nil)
+			if tt.setupParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
+			}
+
+			handler.GetSongByIDHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusOK {
+				var response struct {
+					Data dto.SongResponseItem `json:"data"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.mockResult, response.Data)
+			}
+
+			if tt.setupParam {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
 
-func TestGetSongByIDHandler_NotFound(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-	mockService.On("GetSongByID", "999").Return((*models.Song)(nil), utils.ErrResourceNotFound)
+func TestUpdateSongHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		songID       string
+		setupParam   bool
+		body         string
+		expectedCode int
+		mockError    error
+	}{
+		{
+			name:       "successfully updates song title and genres",
+			songID:     "1",
+			setupParam: true,
+			body: `{
+				"title": "We Are The Champions",
+				"genres": ["rock", "anthem"]
+			}`,
+			expectedCode: http.StatusOK,
+			mockError:    nil,
+		},
+		{
+			name:         "missing song_id param",
+			setupParam:   false,
+			body:         `{ "title": "Somebody to Love" }`,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "invalid JSON payload",
+			songID:       "1",
+			setupParam:   true,
+			body:         `{ "title": "Love of My Life",`, // missing bracket
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "empty update payload",
+			songID:       "1",
+			setupParam:   true,
+			body:         `{}`,
+			expectedCode: http.StatusBadRequest,
+			mockError:    errors.ErrValidationFailed,
+		},
+		{
+			name:         "invalid title too short",
+			songID:       "1",
+			setupParam:   true,
+			body:         `{ "title": "a" }`,
+			expectedCode: http.StatusBadRequest,
+			mockError:    errors.ErrValidationFailed,
+		},
+		{
+			name:         "song not found",
+			songID:       "999",
+			setupParam:   true,
+			body:         `{ "author": "Queen" }`,
+			expectedCode: http.StatusNotFound,
+			mockError:    errors.ErrResourceNotFound,
+		},
+		{
+			name:         "internal server error",
+			songID:       "1",
+			setupParam:   true,
+			body:         `{ "genres": ["rock"] }`,
+			expectedCode: http.StatusInternalServerError,
+			mockError:    errors.ErrInternalServer,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/999", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSongHandlerTest()
 
-	handler.GetSongByIDHandler(c)
+			if tt.setupParam && tt.mockError != errors.ErrValidationFailed {
+				var update dto.UpdateSongRequest
+				_ = json.Unmarshal([]byte(tt.body), &update)
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertExpectations(t)
+				mockService.
+					On("UpdateSong", tt.songID, update).
+					Return(tt.mockError)
+			}
+
+			path := "/songs"
+			if tt.setupParam {
+				path += "/" + tt.songID
+			}
+
+			c, w := utils.CreateTestContext(http.MethodPut, path, strings.NewReader(tt.body))
+			if tt.setupParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
+			}
+
+			handler.UpdateSongHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.setupParam && tt.expectedCode != http.StatusBadRequest {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
 
-func TestGetSongByIDHandler_MissingID(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
+func TestDeleteSongWithDocumentsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		songID       string
+		setupParam   bool
+		mockError    error
+		expectedCode int
+	}{
+		{
+			name:         "successfully deletes song",
+			songID:       "1",
+			setupParam:   true,
+			mockError:    nil,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "missing song_id param",
+			setupParam:   false,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "song not found",
+			songID:       "999",
+			setupParam:   true,
+			mockError:    errors.ErrResourceNotFound,
+			expectedCode: http.StatusNotFound,
+		},
+		{
+			name:         "internal server error",
+			songID:       "1",
+			setupParam:   true,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/", nil)
-	handler.GetSongByIDHandler(c)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSongHandlerTest()
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
+			if tt.setupParam && tt.expectedCode != http.StatusBadRequest {
+				mockService.
+					On("DeleteSongWithDocuments", tt.songID).
+					Return(tt.mockError)
+			}
 
-func TestCreateSongHandler_Success(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
+			path := "/songs"
+			if tt.setupParam {
+				path += "/" + tt.songID
+			}
 
-	data := `{"title": "Yesterday", "author": "The Beatles", "genres": ["Rock"]}`
-	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("123", nil)
+			c, w := utils.CreateTestContext(http.MethodDelete, path, nil)
+			if tt.setupParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
+			}
 
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
-	c.Request.Header.Set("Content-Type", "application/json")
+			handler.DeleteSongWithDocumentsHandler(c)
 
-	handler.CreateSongHandler(c)
+			assert.Equal(t, tt.expectedCode, w.Code)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Contains(t, w.Body.String(), "Song created successfully")
-	mockService.AssertExpectations(t)
-}
-
-func TestCreateSongHandler_InvalidInput(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	data := `{"title": "", "author": "", "genres": []}`
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.CreateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestCreateSongHandler_InvalidDocument(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	data := `{"title": "Title", "author": "Auth", "genres": ["Pop"], "documents":[{"type": "", "instrument": [], "pdf_url": ""}]}`
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.CreateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid document")
-}
-
-func TestCreateSongHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-
-	data := `{"title": "Imagine", "author": "John Lennon", "genres": ["Rock"]}`
-	mockService.On("CreateSongWithDocuments", mock.Anything, mock.Anything).Return("", errors.New("error"))
-
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs", strings.NewReader(data))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.CreateSongHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to create song")
-	mockService.AssertExpectations(t)
-}
-
-func TestUpdateSongHandler_Success(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-
-	update := map[string]interface{}{"title": "New Title"}
-	mockService.On("UpdateSong", "1", update).Return(nil)
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Song updated successfully")
-	mockService.AssertExpectations(t)
-}
-
-func TestUpdateSongHandler_MissingID(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/", strings.NewReader(`{"title": "New Title"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
-
-func TestUpdateSongHandler_InvalidJSON(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title": 123}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateSongHandler_EmptyUpdate(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateSongHandler_InvalidFields(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":""}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateSongHandler_InvalidJSONBinding(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	invalidJSON := `{"title":`
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(invalidJSON))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateSongHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-
-	update := map[string]interface{}{"title": "New Title"}
-	mockService.On("UpdateSong", "1", update).Return(errors.New("update failed"))
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/songs/1", strings.NewReader(`{"title":"New Title"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateSongHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to update song")
-	mockService.AssertExpectations(t)
-}
-
-func TestDeleteSongWithDocumentsHandler_Success(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-	mockService.On("DeleteSongWithDocuments", "1").Return(nil)
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.DeleteSongWithDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Song deleted successfully")
-	mockService.AssertExpectations(t)
-}
-
-func TestDeleteSongWithDocumentsHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupSongHandlerTest()
-	mockService.On("DeleteSongWithDocuments", "999").Return(errors.New("delete failed"))
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/999", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "999"})
-
-	handler.DeleteSongWithDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to delete song")
-	mockService.AssertExpectations(t)
-}
-
-func TestDeleteSongWithDocumentsHandler_MissingID(t *testing.T) {
-	handler, _ := setupSongHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/songs/", nil)
-	handler.DeleteSongWithDocumentsHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
+			if tt.setupParam && tt.expectedCode != http.StatusBadRequest {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }

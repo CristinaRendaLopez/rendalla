@@ -1,10 +1,11 @@
 package handlers_test
 
 import (
-	"errors"
+	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
@@ -19,155 +20,192 @@ func setupSearchHandlerTest() (*handlers.SearchHandler, *mocks.MockSearchService
 	return handler, mockService
 }
 
-func TestSearchSongsByTitleHandler_Success(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
+func TestListSongsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		mockTitle    string
+		mockSort     string
+		mockOrder    string
+		mockReturn   []models.Song
+		mockNext     interface{}
+		mockErr      error
+		expectedCode int
+		expectedBody []string
+	}{
+		{
+			name:         "filter by title",
+			query:        "title=love",
+			mockTitle:    "love",
+			mockReturn:   []models.Song{SongLoveOfMyLife},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"Love of My Life"},
+		},
+		{
+			name:         "sort by title desc",
+			query:        "title=love&sort=title&order=desc",
+			mockTitle:    "love",
+			mockSort:     "title",
+			mockOrder:    "desc",
+			mockReturn:   []models.Song{SongSomebodyToLove, SongLoveOfMyLife},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"Somebody to Love", "Love of My Life"},
+		},
+		{
+			name:         "empty result",
+			query:        "title=nothing",
+			mockTitle:    "nothing",
+			mockReturn:   []models.Song{},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{`"data":[]`},
+		},
+		{
+			name:         "next_token included",
+			query:        "next_token=abc",
+			mockNext:     "abc",
+			mockReturn:   []models.Song{SongOneVision},
+			expectedCode: http.StatusOK,
+			expectedBody: []string{"One Vision", "next_token"},
+		},
+		{
+			name:         "service error",
+			query:        "title=error",
+			mockTitle:    "error",
+			mockErr:      errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{
-		{ID: "1", Title: "Love Me Do"},
-	}, nil, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSearchHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
-	c.Request.URL.RawQuery = "title=love"
+			mockService.On("ListSongs", tt.mockTitle, tt.mockSort, tt.mockOrder, 10, mock.Anything).
+				Return(tt.mockReturn, tt.mockNext, tt.mockErr)
 
-	handler.SearchSongsByTitleHandler(c)
+			path := "/songs/search"
+			if tt.query != "" {
+				path += "?" + tt.query
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Love Me Do")
-	mockService.AssertExpectations(t)
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			c.Request.URL.RawQuery = tt.query
+
+			handler.ListSongsHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+			for _, s := range tt.expectedBody {
+				assert.Contains(t, w.Body.String(), s)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
 }
 
-func TestSearchSongsByTitleHandler_MissingTitle(t *testing.T) {
-	handler, _ := setupSearchHandlerTest()
+func TestListDocumentsHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		params       []string
+		mockReturn   []models.Document
+		mockNext     interface{}
+		mockErr      error
+		expectedCode int
+		expectedIDs  []string
+	}{
+		{
+			name:         "filter by title",
+			query:        "title=queen",
+			params:       []string{"queen", "", "", "", ""},
+			mockReturn:   []models.Document{DocSheetMusicGuitar},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"1"},
+		},
+		{
+			name:         "filter by instrument",
+			query:        "instrument=Piano",
+			params:       []string{"", "Piano", "", "", ""},
+			mockReturn:   []models.Document{DocSheetMusicPiano},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"2"},
+		},
+		{
+			name:         "filter by type",
+			query:        "type=tablature",
+			params:       []string{"", "", "tablature", "", ""},
+			mockReturn:   []models.Document{DocTablatureGuitar},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"3"},
+		},
+		{
+			name:         "combined filters with sorting",
+			query:        "title=love&instrument=Violin&type=sheet_music&sort=title&order=asc",
+			params:       []string{"love", "Violin", "sheet_music", "title", "asc"},
+			mockReturn:   []models.Document{DocViolinLoveOfMyLife, DocViolinSomebodyToLove},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"3", "4"},
+		},
+		{
+			name:         "sort by created_at desc",
+			query:        "sort=created_at&order=desc",
+			params:       []string{"", "", "", "created_at", "desc"},
+			mockReturn:   []models.Document{DocUnderPressure, DocInnuendo},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{"5", "6"},
+		},
+		{
+			name:         "empty result",
+			query:        "title=none",
+			params:       []string{"none", "", "", "", ""},
+			mockReturn:   []models.Document{},
+			expectedCode: http.StatusOK,
+			expectedIDs:  []string{},
+		},
+		{
+			name:         "service error",
+			query:        "title=queen",
+			params:       []string{"queen", "", "", "", ""},
+			mockErr:      errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search", nil)
-	c.Request.URL.RawQuery = "title="
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupSearchHandlerTest()
 
-	handler.SearchSongsByTitleHandler(c)
+			mockService.On("ListDocuments",
+				tt.params[0], tt.params[1], tt.params[2], tt.params[3], tt.params[4], 10, mock.Anything,
+			).Return(tt.mockReturn, tt.mockNext, tt.mockErr)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing title parameter")
-}
+			path := "/documents/search"
+			if tt.query != "" {
+				path += "?" + tt.query
+			}
 
-func TestSearchSongsByTitleHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			c.Request.URL.RawQuery = tt.query
 
-	mockService.On("SearchSongsByTitle", "love", 10, mock.Anything).Return([]models.Song{}, nil, errors.New("search error"))
+			handler.ListDocumentsHandler(c)
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/search?title=love", nil)
-	c.Request.URL.RawQuery = "title=love"
+			assert.Equal(t, tt.expectedCode, w.Code)
 
-	handler.SearchSongsByTitleHandler(c)
+			if tt.expectedCode == http.StatusOK {
+				var response struct {
+					Data []models.Document `json:"data"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error searching for songs")
-	mockService.AssertExpectations(t)
-}
+				var resultIDs []string
+				for _, doc := range response.Data {
+					resultIDs = append(resultIDs, doc.ID)
+				}
+				assert.ElementsMatch(t, tt.expectedIDs, resultIDs)
+			}
 
-func TestSearchDocumentsByTitleHandler_Success(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("SearchDocumentsByTitle", "score", 10, mock.Anything).Return([]models.Document{
-		{ID: "doc1", Type: "score", Instrument: []string{"violin"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=score", nil)
-	c.Request.URL.RawQuery = "title=score"
-
-	handler.SearchDocumentsByTitleHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "violin")
-	mockService.AssertExpectations(t)
-}
-
-func TestSearchDocumentsByTitleHandler_MissingTitle(t *testing.T) {
-	handler, _ := setupSearchHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search", nil)
-	c.Request.URL.RawQuery = "title="
-
-	handler.SearchDocumentsByTitleHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing title parameter")
-}
-
-func TestFilterDocumentsByInstrumentHandler_Success(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("FilterDocumentsByInstrument", "guitar", 10, mock.Anything).Return([]models.Document{
-		{ID: "doc1", Type: "score", Instrument: []string{"guitar"}},
-	}, nil, nil)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/filter?instrument=guitar", nil)
-	c.Request.URL.RawQuery = "instrument=guitar"
-
-	handler.FilterDocumentsByInstrumentHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "guitar")
-	mockService.AssertExpectations(t)
-}
-
-func TestSearchDocumentsByTitleHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("SearchDocumentsByTitle", "score", 10, mock.Anything).Return([]models.Document{}, nil, errors.New("service error"))
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/search?title=score", nil)
-	c.Request.URL.RawQuery = "title=score"
-
-	handler.SearchDocumentsByTitleHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error searching for documents")
-	mockService.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrumentHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupSearchHandlerTest()
-
-	mockService.On("FilterDocumentsByInstrument", "guitar", 10, mock.Anything).Return([]models.Document{}, nil, errors.New("filter error"))
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/filter?instrument=guitar", nil)
-	c.Request.URL.RawQuery = "instrument=guitar"
-
-	handler.FilterDocumentsByInstrumentHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Error filtering documents by instrument")
-	mockService.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrumentHandler_MissingInstrument(t *testing.T) {
-	handler, _ := setupSearchHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/filter", nil)
-	c.Request.URL.RawQuery = "instrument="
-
-	handler.FilterDocumentsByInstrumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing instrument parameter")
-}
-
-func TestExtractPaginationParams_InvalidLimit(t *testing.T) {
-	c, _ := utils.CreateTestContext(http.MethodGet, "/test", nil)
-	c.Request.URL.RawQuery = "limit=abc"
-
-	limit, next := utils.ExtractPaginationParams(c)
-
-	assert.Equal(t, 10, limit)
-	assert.Equal(t, 0, len(next))
-}
-
-func TestExtractPaginationParams_WithNextToken(t *testing.T) {
-	c, _ := utils.CreateTestContext(http.MethodGet, "/test", nil)
-	c.Request.URL.RawQuery = "next_token=abc123"
-
-	limit, next := utils.ExtractPaginationParams(c)
-
-	assert.Equal(t, 10, limit)
-	_, ok := next["abc123"]
-	assert.True(t, ok)
+			mockService.AssertExpectations(t)
+		})
+	}
 }

@@ -1,108 +1,186 @@
 package services_test
 
 import (
-	"errors"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
-	"github.com/guregu/dynamo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func TestSearchSongsByTitle(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	songs := []models.Song{
-		{ID: "1", Title: "Bohemian Rhapsody", Author: "Queen", Genres: []string{"Rock"}},
-		{ID: "2", Title: "We Will Rock You", Author: "Queen", Genres: []string{"Rock"}},
+func TestListSongs(t *testing.T) {
+	tests := []struct {
+		name         string
+		title        string
+		sortField    string
+		sortOrder    string
+		limit        int
+		nextToken    map[string]string
+		mockSongs    []models.Song
+		mockNext     map[string]string
+		mockError    error
+		expectError  bool
+		expectedSize int
+	}{
+		{
+			name:         "no filters, default sort",
+			title:        "",
+			sortField:    "",
+			sortOrder:    "",
+			limit:        10,
+			nextToken:    nil,
+			mockSongs:    []models.Song{SongBohemianRhapsody},
+			mockNext:     nil,
+			mockError:    nil,
+			expectedSize: 1,
+		},
+		{
+			name:         "filter by title",
+			title:        "radio",
+			sortField:    "",
+			sortOrder:    "",
+			limit:        10,
+			nextToken:    nil,
+			mockSongs:    []models.Song{SongRadioGaGa},
+			mockNext:     nil,
+			mockError:    nil,
+			expectedSize: 1,
+		},
+		{
+			name:         "sort by title asc",
+			title:        "",
+			sortField:    "title",
+			sortOrder:    "asc",
+			limit:        10,
+			nextToken:    nil,
+			mockSongs:    []models.Song{SongBohemianRhapsody, SongRadioGaGa},
+			mockNext:     nil,
+			mockError:    nil,
+			expectedSize: 2,
+		},
+		{
+			name:         "with next token",
+			title:        "",
+			sortField:    "",
+			sortOrder:    "",
+			limit:        10,
+			nextToken:    map[string]string{"last_id": "2"},
+			mockSongs:    []models.Song{SongRadioGaGa},
+			mockNext:     ReturnedNextToken,
+			mockError:    nil,
+			expectedSize: 1,
+		},
+		{
+			name:        "repository error",
+			title:       "queen",
+			mockError:   errors.ErrInternalServer,
+			expectError: true,
+		},
 	}
 
-	mockSearchRepo.On("SearchSongsByTitle", "rock", 10, dynamo.PagingKey(nil)).Return(songs, dynamo.PagingKey(nil), nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := new(mocks.MockSearchRepository)
+			service := services.NewSearchService(repo)
 
-	result, _, err := service.SearchSongsByTitle("rock", 10, dynamo.PagingKey(nil))
+			repo.On("ListSongs", tt.title, mock.Anything, mock.Anything, tt.limit, tt.nextToken).
+				Return(tt.mockSongs, tt.mockNext, tt.mockError)
 
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-	assert.Equal(t, "Bohemian Rhapsody", result[0].Title)
-	mockSearchRepo.AssertExpectations(t)
+			songs, next, err := service.ListSongs(tt.title, tt.sortField, tt.sortOrder, tt.limit, tt.nextToken)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, songs, tt.expectedSize)
+				assert.Equal(t, tt.mockNext, next)
+			}
+		})
+	}
 }
 
-func TestSearchSongsByTitle_NotFound(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	mockSearchRepo.On("SearchSongsByTitle", "unknown", 10, dynamo.PagingKey(nil)).Return([]models.Song{}, dynamo.PagingKey(nil), nil)
-
-	result, _, err := service.SearchSongsByTitle("unknown", 10, dynamo.PagingKey(nil))
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestSearchDocumentsByTitle(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	docs := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", Instrument: []string{"Guitar"}, PDFURL: "https://s3.amazonaws.com/queen/bohemian.pdf"},
+func TestListDocuments(t *testing.T) {
+	tests := []struct {
+		name         string
+		title        string
+		instrument   string
+		docType      string
+		sortField    string
+		sortOrder    string
+		limit        int
+		nextToken    map[string]string
+		mockDocs     []models.Document
+		mockNext     map[string]string
+		mockError    error
+		expectError  bool
+		expectedSize int
+	}{
+		{
+			name:         "no filters, default sort",
+			limit:        10,
+			mockDocs:     []models.Document{DocumentPianoScore},
+			mockNext:     nil,
+			expectedSize: 1,
+		},
+		{
+			name:         "filter by instrument",
+			instrument:   "guitar",
+			mockDocs:     []models.Document{DocumentGuitarTab},
+			expectedSize: 1,
+		},
+		{
+			name:         "combined filters and sort",
+			title:        "love",
+			instrument:   "violin",
+			docType:      "sheet_music",
+			sortField:    "title",
+			sortOrder:    "asc",
+			mockDocs:     []models.Document{DocumentPianoScore, DocumentGuitarTab},
+			expectedSize: 2,
+		},
+		{
+			name:         "with next token",
+			nextToken:    map[string]string{"last_id": "d1"},
+			mockDocs:     []models.Document{DocumentGuitarTab},
+			mockNext:     ReturnedNextToken,
+			expectedSize: 1,
+		},
+		{
+			name:        "repository error",
+			title:       "queen",
+			mockError:   errors.ErrInternalServer,
+			expectError: true,
+		},
 	}
 
-	mockSearchRepo.On("SearchDocumentsByTitle", "bohemian", 10, dynamo.PagingKey(nil)).Return(docs, dynamo.PagingKey(nil), nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := new(mocks.MockSearchRepository)
+			service := services.NewSearchService(repo)
 
-	result, _, err := service.SearchDocumentsByTitle("bohemian", 10, dynamo.PagingKey(nil))
+			repo.On("ListDocuments", tt.title, tt.instrument, tt.docType, mock.Anything, mock.Anything, tt.limit, tt.nextToken).
+				Return(tt.mockDocs, tt.mockNext, tt.mockError)
 
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "doc1", result[0].ID)
-	mockSearchRepo.AssertExpectations(t)
-}
+			docs, next, err := service.ListDocuments(
+				tt.title,
+				tt.instrument,
+				tt.docType,
+				tt.sortField,
+				tt.sortOrder,
+				tt.limit,
+				tt.nextToken,
+			)
 
-func TestSearchDocumentsByTitle_Error(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	mockSearchRepo.On("SearchDocumentsByTitle", "error", 10, dynamo.PagingKey(nil)).
-		Return([]models.Document{}, dynamo.PagingKey(nil), errors.New("database error"))
-
-	result, _, err := service.SearchDocumentsByTitle("error", 10, dynamo.PagingKey(nil))
-
-	assert.Error(t, err)
-	assert.Empty(t, result)
-	assert.Equal(t, "database error", err.Error())
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrument(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	docs := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", Instrument: []string{"Guitar"}, PDFURL: "https://s3.amazonaws.com/queen/bohemian.pdf"},
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, docs, tt.expectedSize)
+				assert.Equal(t, tt.mockNext, next)
+			}
+		})
 	}
-
-	mockSearchRepo.On("FilterDocumentsByInstrument", "Guitar", 10, nil).Return(docs, dynamo.PagingKey(nil), nil)
-
-	result, _, err := service.FilterDocumentsByInstrument("Guitar", 10, nil)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "doc1", result[0].ID)
-	mockSearchRepo.AssertExpectations(t)
-}
-
-func TestFilterDocumentsByInstrument_NoResults(t *testing.T) {
-	mockSearchRepo := new(mocks.MockSearchRepository)
-	service := services.NewSearchService(mockSearchRepo)
-
-	mockSearchRepo.On("FilterDocumentsByInstrument", "Drums", 10, nil).Return([]models.Document{}, dynamo.PagingKey(nil), nil)
-
-	result, _, err := service.FilterDocumentsByInstrument("Drums", 10, nil)
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	mockSearchRepo.AssertExpectations(t)
 }
