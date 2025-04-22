@@ -20,8 +20,8 @@ func LoadConfig() {
 		logrus.Warn("No .env file found, using system environment variables")
 	}
 
-	SongTableName = getEnv("SONG_DYNAMODB_TABLE", "default_songs_table")
-	DocumentTableName = getEnv("DOCUMENT_DYNAMODB_TABLE", "default_documents_table")
+	SongTableName = getEnv("SONGS_TABLE", "default_songs_table")
+	DocumentTableName = getEnv("DOCUMENTS_TABLE", "default_documents_table")
 	AWSRegion = getEnv("AWS_REGION", "eu-north-1")
 	AppPort = getEnv("APP_PORT", "8080")
 

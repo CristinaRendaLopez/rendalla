@@ -10,6 +10,9 @@ import (
 
 var validate = validator.New()
 
+// ValidateRequest is a middleware function that validates incoming JSON requests
+// against a given struct using go-playground/validator. If validation fails,
+// it returns a 400 response with details and aborts the request.
 func ValidateRequest(obj interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		newObj := obj

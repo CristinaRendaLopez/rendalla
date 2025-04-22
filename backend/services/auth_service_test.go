@@ -1,9 +1,10 @@
 package services_test
 
 import (
-	"errors"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/services"
@@ -12,117 +13,149 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func setupAuthServiceTest() (*services.AuthService, *mocks.MockAuthRepository, *mocks.MockClock, *mocks.MockTokenGenerator) {
+func setupAuthServiceTest() (*services.AuthService, *mocks.MockAuthRepository, *mocks.MockTimeProvider, *mocks.MockTokenGenerator) {
 	authRepo := new(mocks.MockAuthRepository)
-	clock := new(mocks.MockClock)
+	timeProvider := new(mocks.MockTimeProvider)
 	tokenGen := new(mocks.MockTokenGenerator)
-	service := services.NewAuthService(authRepo, clock, tokenGen)
-	return service, authRepo, clock, tokenGen
+	service := services.NewAuthService(authRepo, timeProvider, tokenGen)
+	return service, authRepo, timeProvider, tokenGen
 }
 
-func TestAuthenticateUser_Success(t *testing.T) {
-	service, authRepo, clock, tokenGen := setupAuthServiceTest()
+func TestAuthenticateUser(t *testing.T) {
+	const nowUnix int64 = 1000
 
-	hashedPwd, _ := bcryptHash("secret")
-	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
+	hashedPwd, _ := bcrypt.GenerateFromPassword([]byte("realpass"), bcrypt.DefaultCost)
+	customCreds := repository.AuthCredentials{
+		Username: "admin",
+		Password: string(hashedPwd),
+	}
 
-	authRepo.On("GetAuthCredentials").Return(creds, nil)
-	clock.On("NowUnix").Return(1000)
-	expectedClaims := jwt.MapClaims{"username": "admin", "exp": int64(1000 + 72*3600)}
-	tokenGen.On("GenerateToken", expectedClaims).Return("jwt-token", nil)
+	tests := []struct {
+		name           string
+		input          dto.LoginRequest
+		creds          *repository.AuthCredentials
+		mockNow        int64
+		mockToken      string
+		mockTokenError error
+		mockCredsError error
+		expectToken    string
+		expectError    error
+	}{
+		{
+			name:        "valid credentials",
+			input:       ValidLoginInput,
+			creds:       &ValidStoredCredentials,
+			mockNow:     nowUnix,
+			mockToken:   GeneratedToken,
+			expectToken: GeneratedToken,
+		},
+		{
+			name:        "invalid username",
+			input:       InvalidUsernameInput,
+			creds:       &ValidStoredCredentials,
+			expectError: errors.ErrInvalidCredentials,
+		},
+		{
+			name:        "invalid password",
+			input:       InvalidPasswordInput,
+			creds:       &customCreds,
+			expectError: errors.ErrInvalidCredentials,
+		},
+		{
+			name:           "repository error",
+			input:          ValidLoginInput,
+			mockCredsError: errors.ErrInternalServer,
+			expectError:    errors.ErrInternalServer,
+		},
+		{
+			name:           "token generation fails",
+			input:          ValidLoginInput,
+			creds:          &ValidStoredCredentials,
+			mockNow:        nowUnix,
+			mockTokenError: errors.ErrTokenGenerationFailed,
+			expectError:    errors.ErrTokenGenerationFailed,
+		},
+	}
 
-	token, err := service.AuthenticateUser("admin", "secret")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, authRepo, clock, tokenGen := setupAuthServiceTest()
 
-	assert.NoError(t, err)
-	assert.Equal(t, "jwt-token", token)
+			if tt.mockCredsError != nil {
+				authRepo.On("GetAuthCredentials").Return(nil, tt.mockCredsError)
+			} else {
+				authRepo.On("GetAuthCredentials").Return(tt.creds, nil)
+			}
 
-	authRepo.AssertExpectations(t)
-	clock.AssertExpectations(t)
-	tokenGen.AssertExpectations(t)
+			if tt.mockNow != 0 {
+				clock.On("NowUnix").Return(tt.mockNow)
+			}
+
+			if tt.mockToken != "" || tt.mockTokenError != nil {
+				claims := jwt.MapClaims{
+					"username": tt.input.Username,
+					"exp":      tt.mockNow + 72*3600,
+				}
+				tokenGen.On("GenerateToken", claims).Return(tt.mockToken, tt.mockTokenError)
+			}
+
+			token, err := service.AuthenticateUser(tt.input.Username, tt.input.Password)
+
+			if tt.expectError != nil {
+				assert.ErrorIs(t, err, tt.expectError)
+				assert.Empty(t, token)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectToken, token)
+			}
+
+			authRepo.AssertExpectations(t)
+			clock.AssertExpectations(t)
+			tokenGen.AssertExpectations(t)
+		})
+	}
 }
 
-func TestAuthenticateUser_InvalidUsername(t *testing.T) {
-	service, authRepo, _, _ := setupAuthServiceTest()
+func TestGetAuthCredentials(t *testing.T) {
+	tests := []struct {
+		name         string
+		mockCreds    *repository.AuthCredentials
+		mockError    error
+		expectError  error
+		expectedCred *repository.AuthCredentials
+	}{
+		{
+			name:         "success",
+			mockCreds:    &ValidStoredCredentials,
+			mockError:    nil,
+			expectError:  nil,
+			expectedCred: &ValidStoredCredentials,
+		},
+		{
+			name:        "repository error",
+			mockCreds:   nil,
+			mockError:   errors.ErrInternalServer,
+			expectError: errors.ErrInternalServer,
+		},
+	}
 
-	creds := &repository.AuthCredentials{Username: "admin", Password: "xxx"}
-	authRepo.On("GetAuthCredentials").Return(creds, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, authRepo, _, _ := setupAuthServiceTest()
 
-	token, err := service.AuthenticateUser("wrong", "secret")
+			authRepo.On("GetAuthCredentials").Return(tt.mockCreds, tt.mockError)
 
-	assert.Error(t, err)
-	assert.Equal(t, "invalid credentials", err.Error())
-	assert.Empty(t, token)
+			result, err := service.GetAuthCredentials()
 
-	authRepo.AssertExpectations(t)
-}
+			if tt.expectError != nil {
+				assert.ErrorIs(t, err, tt.expectError)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedCred, result)
+			}
 
-func TestAuthenticateUser_InvalidPassword(t *testing.T) {
-	service, authRepo, _, _ := setupAuthServiceTest()
-
-	hashedPwd, _ := bcryptHash("realpass")
-	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
-
-	authRepo.On("GetAuthCredentials").Return(creds, nil)
-
-	token, err := service.AuthenticateUser("admin", "wrongpass")
-
-	assert.Error(t, err)
-	assert.Equal(t, "invalid credentials", err.Error())
-	assert.Empty(t, token)
-
-	authRepo.AssertExpectations(t)
-}
-
-func TestAuthenticateUser_RepoError(t *testing.T) {
-	service, authRepo, _, _ := setupAuthServiceTest()
-
-	authRepo.On("GetAuthCredentials").Return(nil, errors.New("db error"))
-
-	token, err := service.AuthenticateUser("admin", "secret")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db error")
-	assert.Empty(t, token)
-
-	authRepo.AssertExpectations(t)
-}
-
-func TestAuthenticateUser_TokenGenerationError(t *testing.T) {
-	service, authRepo, clock, tokenGen := setupAuthServiceTest()
-
-	hashedPwd, _ := bcryptHash("secret")
-	creds := &repository.AuthCredentials{Username: "admin", Password: hashedPwd}
-
-	authRepo.On("GetAuthCredentials").Return(creds, nil)
-	clock.On("NowUnix").Return(1000)
-	claims := jwt.MapClaims{"username": "admin", "exp": int64(1000 + 72*3600)}
-	tokenGen.On("GenerateToken", claims).Return("", errors.New("token error"))
-
-	token, err := service.AuthenticateUser("admin", "secret")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "token error")
-	assert.Empty(t, token)
-
-	authRepo.AssertExpectations(t)
-	clock.AssertExpectations(t)
-	tokenGen.AssertExpectations(t)
-}
-
-func TestGetAuthCredentials_Success(t *testing.T) {
-	service, authRepo, _, _ := setupAuthServiceTest()
-
-	expected := &repository.AuthCredentials{Username: "admin", Password: "pass"}
-	authRepo.On("GetAuthCredentials").Return(expected, nil)
-
-	result, err := service.GetAuthCredentials()
-
-	assert.NoError(t, err)
-	assert.Equal(t, expected, result)
-	authRepo.AssertExpectations(t)
-}
-
-func bcryptHash(pwd string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
-	return string(hash), err
+			authRepo.AssertExpectations(t)
+		})
+	}
 }

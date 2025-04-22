@@ -1,18 +1,18 @@
 package handlers_test
 
 import (
-	"errors"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/mocks"
-	"github.com/CristinaRendaLopez/rendalla-backend/models"
 	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentService) {
@@ -21,283 +21,463 @@ func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentS
 	return handler, mockService
 }
 
-func TestGetAllDocumentsBySongIDHandler_Success(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	documents := []models.Document{
-		{ID: "doc1", SongID: "1", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"},
+func TestCreateDocumentHandler(t *testing.T) {
+	tests := []struct {
+		name          string
+		songID        string
+		setupParam    bool
+		body          string
+		expectedCode  int
+		mockReturnID  string
+		mockReturnErr error
+		expectedDocID string
+	}{
+		{
+			name:          "successfully creates document",
+			songID:        "1",
+			setupParam:    true,
+			body:          DocumentValidJSON,
+			expectedCode:  http.StatusCreated,
+			mockReturnID:  "doc-123",
+			mockReturnErr: nil,
+			expectedDocID: "doc-123",
+		},
+		{
+			name:         "invalid JSON payload",
+			songID:       "1",
+			setupParam:   true,
+			body:         DocumentInvalidJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "missing song_id parameter",
+			setupParam:   false,
+			body:         DocumentValidJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "validation fails",
+			songID:       "1",
+			setupParam:   true,
+			body:         DocumentInvalidDataJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:          "internal service error",
+			songID:        "1",
+			setupParam:    true,
+			body:          DocumentValidJSON,
+			expectedCode:  http.StatusInternalServerError,
+			mockReturnErr: errors.ErrInternalServer,
+		},
 	}
 
-	mockService.On("GetDocumentsBySongID", "1").Return(documents, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+			if tt.setupParam && tt.expectedCode == http.StatusCreated || tt.expectedCode == http.StatusInternalServerError {
+				var req dto.CreateDocumentRequest
+				_ = json.Unmarshal([]byte(tt.body), &req)
+				req.SongID = tt.songID
 
-	handler.GetAllDocumentsBySongIDHandler(c)
+				mockService.
+					On("CreateDocument", req).
+					Return(tt.mockReturnID, tt.mockReturnErr)
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "doc1")
-	mockService.AssertExpectations(t)
+			path := "/songs"
+			if tt.setupParam {
+				path += "/" + tt.songID + "/documents"
+			}
+
+			c, w := utils.CreateTestContext(http.MethodPost, path, strings.NewReader(tt.body))
+			if tt.setupParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
+			}
+
+			handler.CreateDocumentHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusCreated {
+				var response struct {
+					Message    string `json:"message"`
+					DocumentID string `json:"document_id"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedDocID, response.DocumentID)
+			}
+
+			if tt.setupParam && tt.mockReturnErr != errors.ErrValidationFailed {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
 
-func TestGetAllDocumentsBySongIDHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
+func TestGetAllDocumentsBySongIDHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		songID         string
+		setupParam     bool
+		mockDocuments  []dto.DocumentResponseItem
+		mockError      error
+		expectedCode   int
+		expectedResult []dto.DocumentResponseItem
+	}{
+		{
+			name:           "successfully returns documents",
+			songID:         "1",
+			setupParam:     true,
+			mockDocuments:  []dto.DocumentResponseItem{DocumentResponseScore, DocumentResponseTablature},
+			mockError:      nil,
+			expectedCode:   http.StatusOK,
+			expectedResult: []dto.DocumentResponseItem{DocumentResponseScore, DocumentResponseTablature}},
+		{
+			name:           "returns empty document list",
+			songID:         "1",
+			setupParam:     true,
+			mockDocuments:  []dto.DocumentResponseItem{},
+			mockError:      nil,
+			expectedCode:   http.StatusOK,
+			expectedResult: []dto.DocumentResponseItem{},
+		},
+		{
+			name:         "missing song_id param",
+			setupParam:   false,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "internal service error",
+			songID:       "1",
+			setupParam:   true,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	mockService.On("GetDocumentsBySongID", "1").Return([]models.Document{}, errors.New("failed to retrieve documents"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/1/documents", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
+			if tt.setupParam && tt.mockError != errors.ErrValidationFailed {
+				mockService.
+					On("GetDocumentsBySongID", tt.songID).
+					Return(tt.mockDocuments, tt.mockError)
+			}
 
-	handler.GetAllDocumentsBySongIDHandler(c)
+			path := "/songs"
+			if tt.setupParam {
+				path += "/" + tt.songID + "/documents"
+			}
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	mockService.AssertExpectations(t)
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			if tt.setupParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
+			}
+
+			handler.GetAllDocumentsBySongIDHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusOK {
+				var response struct {
+					Data []dto.DocumentResponseItem `json:"data"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResult, response.Data)
+			}
+
+			if tt.setupParam && tt.mockError != errors.ErrValidationFailed {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
 
-func TestGetAllDocumentsBySongIDHandler_MissingID(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
+func TestGetDocumentByIDHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		songID         string
+		docID          string
+		setupParams    bool
+		mockResult     dto.DocumentResponseItem
+		mockError      error
+		expectedCode   int
+		expectedResult dto.DocumentResponseItem
+	}{
+		{
+			name:           "successfully retrieves document",
+			songID:         "1",
+			docID:          "doc-123",
+			setupParams:    true,
+			mockResult:     DocumentResponseScore,
+			mockError:      nil,
+			expectedCode:   http.StatusOK,
+			expectedResult: DocumentResponseScore,
+		},
+		{
+			name:         "missing song_id param",
+			docID:        "doc-123",
+			setupParams:  true,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "missing doc_id param",
+			songID:       "1",
+			setupParams:  true,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "document not found",
+			songID:       "1",
+			docID:        "doc-999",
+			setupParams:  true,
+			mockError:    errors.ErrResourceNotFound,
+			expectedCode: http.StatusNotFound,
+		},
+		{
+			name:         "internal service error",
+			songID:       "1",
+			docID:        "doc-123",
+			setupParams:  true,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/songs/", nil)
-	handler.GetAllDocumentsBySongIDHandler(c)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupDocumentHandlerTest()
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
+			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
+				mockService.
+					On("GetDocumentByID", tt.songID, tt.docID).
+					Return(tt.mockResult, tt.mockError)
+			}
+
+			path := "/songs"
+			if tt.setupParams {
+				path += "/" + tt.songID + "/documents/" + tt.docID
+			}
+
+			c, w := utils.CreateTestContext(http.MethodGet, path, nil)
+			if tt.setupParams {
+				if tt.songID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "song_id", Value: tt.songID})
+				}
+				if tt.docID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: tt.docID})
+				}
+			}
+
+			handler.GetDocumentByIDHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.expectedCode == http.StatusOK {
+				var response struct {
+					Data dto.DocumentResponseItem `json:"data"`
+				}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResult, response.Data)
+			}
+
+			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
 
-func TestGetDocumentByIDHandler_Success(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
+func TestUpdateDocumentHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		songID       string
+		docID        string
+		setupParams  bool
+		body         string
+		expectedCode int
+		mockError    error
+	}{
+		{
+			name:         "successfully updates document",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			body:         DocumentUpdateValidJSON,
+			expectedCode: http.StatusOK,
+			mockError:    nil,
+		},
+		{
+			name:         "missing song_id param",
+			docID:        "doc-1",
+			setupParams:  true,
+			body:         DocumentUpdateOnlyTypeJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "missing doc_id param",
+			songID:       "1",
+			setupParams:  true,
+			body:         DocumentUpdateOnlyTypeJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "invalid JSON payload",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			body:         DocumentUpdateInvalidJSON,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "validation fails (empty instrument)",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			body:         DocumentUpdateEmptyInstrumentJSON,
+			expectedCode: http.StatusBadRequest,
+			mockError:    errors.ErrValidationFailed,
+		},
+		{
+			name:         "document not found",
+			songID:       "1",
+			docID:        "doc-404",
+			setupParams:  true,
+			body:         DocumentUpdateOnlyTypeJSON,
+			expectedCode: http.StatusNotFound,
+			mockError:    errors.ErrResourceNotFound,
+		},
+		{
+			name:         "internal service error",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			body:         DocumentUpdateOnlyTypeJSON,
+			expectedCode: http.StatusInternalServerError,
+			mockError:    errors.ErrInternalServer,
+		},
+	}
 
-	document := &models.Document{ID: "doc1", SongID: "1", Type: "sheet_music", PDFURL: "https://example.com/doc1.pdf"}
-	mockService.On("GetDocumentByID", "doc1").Return(document, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupDocumentHandlerTest()
 
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
+			if tt.setupParams && tt.mockError != errors.ErrValidationFailed {
+				var update dto.UpdateDocumentRequest
+				_ = json.Unmarshal([]byte(tt.body), &update)
 
-	handler.GetDocumentByIDHandler(c)
+				mockService.
+					On("UpdateDocument", tt.songID, tt.docID, update).
+					Return(tt.mockError)
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "doc1")
-	mockService.AssertExpectations(t)
+			path := "/songs"
+			if tt.setupParams {
+				path += "/" + tt.songID + "/documents/" + tt.docID
+			}
+
+			c, w := utils.CreateTestContext(http.MethodPut, path, strings.NewReader(tt.body))
+			if tt.setupParams {
+				if tt.songID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "song_id", Value: tt.songID})
+				}
+				if tt.docID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: tt.docID})
+				}
+			}
+
+			handler.UpdateDocumentHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+		})
+	}
 }
 
-func TestGetDocumentByIDHandler_MissingID(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/", nil)
-	handler.GetDocumentByIDHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
-
-func TestGetDocumentByIDHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	mockService.On("GetDocumentByID", "doc1").Return((*models.Document)(nil), utils.ErrResourceNotFound)
-
-	c, w := utils.CreateTestContext(http.MethodGet, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
-
-	handler.GetDocumentByIDHandler(c)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertExpectations(t)
-}
-
-func TestCreateDocumentHandler_Success(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	validDoc := `{
-		"type": "score",
-		"instrument": ["guitar"],
-		"pdf_url": "https://s3.amazonaws.com/bucket/file.pdf"
-	}`
-
-	mockService.On("CreateDocument", mock.Anything).Return("doc123", nil)
-
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.CreateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Contains(t, w.Body.String(), "Document created successfully")
-	assert.Contains(t, w.Body.String(), "doc123")
-	mockService.AssertExpectations(t)
-}
-
-func TestCreateDocumentHandler_MissingSongID(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	validDoc := `{"type":"score", "instrument":["guitar"], "pdf_url":"file.pdf"}`
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs//documents", strings.NewReader(validDoc))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.CreateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
-
-func TestCreateDocumentHandler_InvalidInput(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	invalidDoc := `{"type": "", "instrument": [], "pdf_url": ""}`
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(invalidDoc))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.CreateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid document data")
-	mockService.AssertExpectations(t)
-}
-
-func TestCreateDocumentHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	validDoc := `{"type": "score", "instrument": ["violin"], "pdf_url": "file.pdf"}`
-	mockService.On("CreateDocument", mock.Anything).Return("", errors.New("creation failed"))
-
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(validDoc))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.CreateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to create document")
-	mockService.AssertExpectations(t)
-}
-
-func TestCreateDocumentHandler_InvalidJSONBinding(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	badJSON := `{"type":`
-
-	c, w := utils.CreateTestContext(http.MethodPost, "/songs/1/documents", strings.NewReader(badJSON))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.CreateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateDocumentHandler_Success(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	updates := map[string]interface{}{"type": "tablature"}
-	mockService.On("UpdateDocument", "doc123", updates).Return(nil)
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": "tablature"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Document updated successfully")
-	mockService.AssertExpectations(t)
-}
-
-func TestUpdateDocumentHandler_MissingID(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	update := `{"type":"score"}`
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/", strings.NewReader(update))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
-
-func TestUpdateDocumentHandler_InvalidJSONBinding(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	badJSON := `{"type":`
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/1", strings.NewReader(badJSON))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "1"})
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid request data")
-}
-
-func TestUpdateDocumentHandler_InvalidType(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": ""}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Invalid document update data")
-}
-
-func TestUpdateDocumentHandler_ServiceError(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	updates := map[string]interface{}{"type": "score"}
-	mockService.On("UpdateDocument", "doc123", updates).Return(errors.New("update failed"))
-
-	c, w := utils.CreateTestContext(http.MethodPut, "/documents/doc123", strings.NewReader(`{"type": "score"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc123"})
-
-	handler.UpdateDocumentHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to update document")
-	mockService.AssertExpectations(t)
-}
-
-func TestDeleteDocumentHandler_Success(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	mockService.On("DeleteDocument", "doc1").Return(nil)
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
-
-	handler.DeleteDocumentHandler(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Document deleted successfully")
-	mockService.AssertExpectations(t)
-}
-
-func TestDeleteDocumentHandler_MissingID(t *testing.T) {
-	handler, _ := setupDocumentHandlerTest()
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/", nil)
-	handler.DeleteDocumentHandler(c)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Missing id")
-}
-
-func TestDeleteDocumentHandler_Service_Error(t *testing.T) {
-	handler, mockService := setupDocumentHandlerTest()
-
-	mockService.On("DeleteDocument", "doc1").Return(errors.New("failed to delete document"))
-
-	c, w := utils.CreateTestContext(http.MethodDelete, "/documents/doc1", nil)
-	c.Params = append(c.Params, gin.Param{Key: "id", Value: "doc1"})
-
-	handler.DeleteDocumentHandler(c)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "Failed to delete document")
-	mockService.AssertExpectations(t)
+func TestDeleteDocumentHandler(t *testing.T) {
+	tests := []struct {
+		name         string
+		songID       string
+		docID        string
+		setupParams  bool
+		mockError    error
+		expectedCode int
+	}{
+		{
+			name:         "successfully deletes document",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			mockError:    nil,
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "missing song_id param",
+			docID:        "doc-1",
+			setupParams:  true,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "missing doc_id param",
+			songID:       "1",
+			setupParams:  true,
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "document not found",
+			songID:       "1",
+			docID:        "doc-999",
+			setupParams:  true,
+			mockError:    errors.ErrResourceNotFound,
+			expectedCode: http.StatusNotFound,
+		},
+		{
+			name:         "internal service error",
+			songID:       "1",
+			docID:        "doc-1",
+			setupParams:  true,
+			mockError:    errors.ErrInternalServer,
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, mockService := setupDocumentHandlerTest()
+
+			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
+				mockService.
+					On("DeleteDocument", tt.songID, tt.docID).
+					Return(tt.mockError)
+			}
+
+			path := "/songs"
+			if tt.setupParams {
+				path += "/" + tt.songID + "/documents/" + tt.docID
+			}
+
+			c, w := utils.CreateTestContext(http.MethodDelete, path, nil)
+			if tt.setupParams {
+				if tt.songID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "song_id", Value: tt.songID})
+				}
+				if tt.docID != "" {
+					c.Params = append(c.Params, gin.Param{Key: "doc_id", Value: tt.docID})
+				}
+			}
+
+			handler.DeleteDocumentHandler(c)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+
+			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
+				mockService.AssertExpectations(t)
+			}
+		})
+	}
 }
