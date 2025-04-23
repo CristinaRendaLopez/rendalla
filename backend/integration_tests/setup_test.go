@@ -48,12 +48,16 @@ func TestMain(m *testing.M) {
 		logrus.Fatal("Failed to seed test data:", err)
 	}
 
-	TestRouter = app.InitApp(db, app.AppConfig{
+	var err error
+	TestRouter, err = app.InitApp(db, app.AppConfig{
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		EnableCORS:     false,
 		EnableLogger:   false,
 		EnableRecovery: true,
 	})
+	if err != nil {
+		logrus.Fatalf("failed to initialize test app: %v", err)
+	}
 
 	// Execute tests
 	code := m.Run()

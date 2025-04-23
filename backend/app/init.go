@@ -1,8 +1,10 @@
 package app
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
 	"github.com/CristinaRendaLopez/rendalla-backend/repository"
 	"github.com/CristinaRendaLopez/rendalla-backend/router"
@@ -35,7 +37,7 @@ type AppConfig struct {
 //
 // Returns:
 //   - a *gin.Engine instance ready to serve HTTP requests
-func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
+func InitApp(db *dynamo.DB, cfg AppConfig) (*gin.Engine, error) {
 
 	// Initialize repositories
 	documentRepo := repository.NewDynamoDocumentRepository(db)
@@ -43,11 +45,16 @@ func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 	searchRepo := repository.NewDynamoSearchRepository(db, documentRepo)
 	authRepo := repository.NewAWSAuthRepository(os.Getenv("ENV"))
 
-	// Initialize services
+	// Initialize utilities
 	idGen := &utils.UUIDGenerator{}
 	timeProvider := &utils.UTCTimeProvider{}
 	tokenGen := &utils.JWTTokenGenerator{Secret: []byte(cfg.JWTSecret)}
+	fileService, err := utils.NewFileService()
+	if err != nil {
+		return nil, fmt.Errorf("%w: file service: %s", errors.ErrAppInitialization, err)
+	}
 
+	// Initialize services
 	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
 	documentService := services.NewDocumentService(documentRepo, songRepo, idGen, timeProvider)
 	searchService := services.NewSearchService(searchRepo)
@@ -55,14 +62,15 @@ func InitApp(db *dynamo.DB, cfg AppConfig) *gin.Engine {
 
 	// Initialize handlers
 	songHandler := handlers.NewSongHandler(songService)
-	documentHandler := handlers.NewDocumentHandler(documentService)
+	documentHandler := handlers.NewDocumentHandler(documentService, fileService)
 	searchHandler := handlers.NewSearchHandler(searchService)
 	authHandler := handlers.NewAuthHandler(authService)
 
 	// Router
-	return router.SetupRouter(songHandler, documentHandler, searchHandler, authHandler, router.RouterOptions{
+	router := router.SetupRouter(songHandler, documentHandler, searchHandler, authHandler, router.RouterOptions{
 		EnableCORS:     cfg.EnableCORS,
 		EnableLogger:   cfg.EnableLogger,
 		EnableRecovery: cfg.EnableRecovery,
 	})
+	return router, nil
 }

@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"mime/multipart"
+	"path/filepath"
 	"strings"
 
+	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/gin-gonic/gin"
 )
@@ -66,4 +69,15 @@ func ValidateNonEmptyStringArrayField(update map[string]interface{}, key string)
 
 func IsEmptyString(val string) bool {
 	return strings.TrimSpace(val) == ""
+}
+
+func IsValidPDF(header *multipart.FileHeader) bool {
+	if header == nil || header.Size > bootstrap.MaxPDFSize {
+		return false
+	}
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+
+	return ext == ".pdf"
+
 }

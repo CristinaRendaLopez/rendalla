@@ -23,12 +23,16 @@ func main() {
 	bootstrap.LoadConfig()
 	bootstrap.InitDB()
 
-	app := app.InitApp(bootstrap.DB, app.AppConfig{
+	app, err := app.InitApp(bootstrap.DB, app.AppConfig{
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		EnableCORS:     true,
 		EnableLogger:   true,
 		EnableRecovery: true,
 	})
+
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize application")
+	}
 
 	if os.Getenv("LAMBDA_TASK_ROOT") != "" {
 		logrus.Info("Running in AWS Lambda mode")
@@ -37,7 +41,6 @@ func main() {
 			return lambdaAdapter.Proxy(req)
 		})
 	} else {
-		// Get and validate port
 		port := bootstrap.AppPort
 		if port == "" {
 			port = "8080"

@@ -16,21 +16,20 @@ import (
 // It delegates business logic to the DocumentServiceInterface.
 type DocumentHandler struct {
 	documentService services.DocumentServiceInterface
+	fileService     utils.FileUploader
 }
 
 // NewDocumentHandler returns a new instance of DocumentHandler.
-func NewDocumentHandler(documentService services.DocumentServiceInterface) *DocumentHandler {
-	return &DocumentHandler{documentService: documentService}
+func NewDocumentHandler(documentService services.DocumentServiceInterface, fileService utils.FileUploader) *DocumentHandler {
+	return &DocumentHandler{
+		documentService: documentService,
+		fileService:     fileService,
+	}
 }
 
 // CreateDocumentHandler handles POST /songs/:song_id/documents.
 // Validates the request and creates a new document linked to a song.
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
-	var req dto.CreateDocumentRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid JSON payload")
-		return
-	}
 
 	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
@@ -38,13 +37,34 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	req.SongID = songID
+	docType := c.PostForm("type")
+	instruments := c.PostFormArray("instrument[]")
 
-	// JSON validation is enough
-	// if err := dto.ValidateCreateDocumentRequest(req); err != nil {
-	// 	errors.HandleAPIError(c, err, "Invalid document data")
-	// 	return
-	// }
+	fileHeader, err := c.FormFile("pdf")
+	if err != nil {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing or invalid PDF file")
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Unable to open uploaded PDF")
+		return
+	}
+	defer file.Close()
+
+	pdfURL, err := h.fileService.UploadPDFToS3(file, fileHeader, songID)
+	if err != nil {
+		errors.HandleAPIError(c, err, "Failed to upload PDF")
+		return
+	}
+
+	req := dto.CreateDocumentRequest{
+		Type:       docType,
+		Instrument: instruments,
+		PDFURL:     pdfURL,
+		SongID:     songID,
+	}
 
 	documentID, err := h.documentService.CreateDocument(req)
 	if err != nil {

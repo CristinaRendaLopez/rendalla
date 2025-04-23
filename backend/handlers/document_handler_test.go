@@ -17,7 +17,8 @@ import (
 
 func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentService) {
 	mockService := new(mocks.MockDocumentService)
-	handler := handlers.NewDocumentHandler(mockService)
+	mockFileService := &mocks.MockFileService{}
+	handler := handlers.NewDocumentHandler(mockService, mockFileService)
 	return handler, mockService
 }
 

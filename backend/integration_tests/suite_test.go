@@ -49,12 +49,17 @@ func (s *IntegrationTestSuite) SetupSuite() {
 		s.FailNow("failed to seed test data", err)
 	}
 
-	s.Router = app.InitApp(s.DB, app.AppConfig{
+	var err error
+	s.Router, err = app.InitApp(s.DB, app.AppConfig{
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		EnableCORS:     false,
 		EnableLogger:   false,
 		EnableRecovery: true,
 	})
+	if err != nil {
+		logrus.Fatalf("failed to initialize test app: %v", err)
+	}
+
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {

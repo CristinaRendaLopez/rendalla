@@ -20,4 +20,5 @@ var (
 	// System
 	ErrThroughputExceeded = errors.New("throughput limit exceeded")
 	ErrInternalServer     = errors.New("internal server error")
+	ErrAppInitialization  = errors.New("application initialization failed")
 )
