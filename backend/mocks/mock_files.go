@@ -2,10 +2,15 @@ package mocks
 
 import (
 	"mime/multipart"
+
+	"github.com/stretchr/testify/mock"
 )
 
-type MockFileService struct{}
+type MockFileService struct {
+	mock.Mock
+}
 
 func (m *MockFileService) UploadPDFToS3(file multipart.File, header *multipart.FileHeader, songID string) (string, error) {
-	return "https://fake-s3.com/songs/" + songID + "/doc_mock.pdf", nil
+	args := m.Called(file, header, songID)
+	return args.String(0), args.Error(1)
 }

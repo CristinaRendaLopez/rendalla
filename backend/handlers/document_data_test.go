@@ -1,6 +1,9 @@
 package handlers_test
 
-import "github.com/CristinaRendaLopez/rendalla-backend/dto"
+import (
+	"github.com/CristinaRendaLopez/rendalla-backend/dto"
+	"github.com/CristinaRendaLopez/rendalla-backend/utils"
+)
 
 // Valid document data
 const DocumentValidJSON = `
@@ -61,3 +64,27 @@ const DocumentUpdateOnlyTypeJSON = `
 {
 	"type": "score"
 }`
+
+var MultipartFieldsValid = map[string]string{
+	"type":         "score",
+	"instrument[]": "piano",
+}
+
+var MultipartFieldsInvalidInstrument = map[string]string{
+	"type":         "tablature",
+	"instrument[]": "", // invalid (empty)
+}
+
+var MultipartFieldsInvalid = map[string]string{
+	"type": "",
+}
+
+var MultipartPDFMock = utils.TestFile{
+	Filename: "bohemian.pdf",
+	Content:  []byte("%PDF-1.4\nfake pdf content\n..."),
+}
+
+var MultipartPDFInvalid = utils.TestFile{
+	Filename: "not_a_pdf.txt",
+	Content:  []byte("just some text, not a pdf"),
+}

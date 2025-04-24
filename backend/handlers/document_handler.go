@@ -46,6 +46,11 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
+	if !utils.IsValidPDF(fileHeader) {
+		errors.HandleAPIError(c, errors.ErrValidationFailed, "Invalid PDF file (type, size or extension)")
+		return
+	}
+
 	file, err := fileHeader.Open()
 	if err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Unable to open uploaded PDF")
@@ -64,6 +69,11 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		Instrument: instruments,
 		PDFURL:     pdfURL,
 		SongID:     songID,
+	}
+
+	if err := dto.ValidateCreateDocumentRequest(req); err != nil {
+		errors.HandleAPIError(c, err, "Invalid document data")
+		return
 	}
 
 	documentID, err := h.documentService.CreateDocument(req)
