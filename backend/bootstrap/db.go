@@ -10,8 +10,6 @@ import (
 var DB *dynamo.DB
 
 func InitDB() {
-	LoadConfig()
-
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(AWSRegion),
 	})

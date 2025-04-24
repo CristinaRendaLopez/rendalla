@@ -4,7 +4,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,10 +17,6 @@ var (
 )
 
 func LoadConfig() {
-	err := godotenv.Load()
-	if err != nil {
-		logrus.Warn("No .env file found, using system environment variables")
-	}
 
 	SongTableName = getEnv("SONGS_TABLE", "default_songs_table")
 	DocumentTableName = getEnv("DOCUMENTS_TABLE", "default_documents_table")
@@ -41,6 +36,8 @@ func LoadConfig() {
 		"DocumentTableName": DocumentTableName,
 		"AWSRegion":         AWSRegion,
 		"AppPort":           AppPort,
+		"S3BucketName":      S3BucketName,
+		"MaxPDFSize":        MaxPDFSize,
 	}).Info("Configuration loaded successfully")
 }
 
