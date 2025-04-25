@@ -71,12 +71,18 @@ func TestCreateDocument(t *testing.T) {
 				docRepo.On("CreateDocument", mock.Anything).Return(tt.mockDocErr)
 			}
 
-			_, err := service.CreateDocument(tt.request)
+			docID, err := service.CreateDocument(tt.request)
 
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				docRepo.AssertCalled(t, "CreateDocument", mock.MatchedBy(func(doc models.Document) bool {
+					return doc.ID == docID &&
+						doc.SongID == tt.request.SongID &&
+						doc.Type == tt.request.Type &&
+						doc.PDFURL == tt.request.PDFURL
+				}))
 			}
 		})
 	}
