@@ -53,6 +53,7 @@ func InitApp(db *dynamo.DB, cfg AppConfig) (*gin.Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: file service: %s", errors.ErrAppInitialization, err)
 	}
+	fileExtractor := &utils.GinFileExtractor{}
 
 	// Initialize services
 	songService := services.NewSongService(songRepo, documentRepo, idGen, timeProvider)
@@ -62,7 +63,7 @@ func InitApp(db *dynamo.DB, cfg AppConfig) (*gin.Engine, error) {
 
 	// Initialize handlers
 	songHandler := handlers.NewSongHandler(songService)
-	documentHandler := handlers.NewDocumentHandler(documentService, fileService)
+	documentHandler := handlers.NewDocumentHandler(documentService, fileService, fileExtractor)
 	searchHandler := handlers.NewSearchHandler(searchService)
 	authHandler := handlers.NewAuthHandler(authService)
 

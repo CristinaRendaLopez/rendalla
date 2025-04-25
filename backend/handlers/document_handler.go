@@ -2,6 +2,7 @@ package handlers
 
 import (
 	stdErrors "errors"
+	"fmt"
 	"net/http"
 
 	"github.com/CristinaRendaLopez/rendalla-backend/dto"
@@ -17,20 +18,21 @@ import (
 type DocumentHandler struct {
 	documentService services.DocumentServiceInterface
 	fileService     utils.FileUploader
+	fileExtractor   utils.FileExtractor
 }
 
 // NewDocumentHandler returns a new instance of DocumentHandler.
-func NewDocumentHandler(documentService services.DocumentServiceInterface, fileService utils.FileUploader) *DocumentHandler {
+func NewDocumentHandler(documentService services.DocumentServiceInterface, fileService utils.FileUploader, fileExtractor utils.FileExtractor) *DocumentHandler {
 	return &DocumentHandler{
 		documentService: documentService,
 		fileService:     fileService,
+		fileExtractor:   fileExtractor,
 	}
 }
 
 // CreateDocumentHandler handles POST /songs/:song_id/documents.
 // Validates the request and creates a new document linked to a song.
 func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
-
 	songID, ok := utils.RequireParam(c, "song_id")
 	if !ok {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing parameter: song_id")
@@ -40,7 +42,7 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 	docType := c.PostForm("type")
 	instruments := c.PostFormArray("instrument[]")
 
-	fileHeader, err := c.FormFile("pdf")
+	fileHeader, err := h.fileExtractor.GetHeader(c, "pdf")
 	if err != nil {
 		errors.HandleAPIError(c, errors.ErrValidationFailed, "Missing or invalid PDF file")
 		return
@@ -51,24 +53,24 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		return
 	}
 
-	file, err := fileHeader.Open()
+	pdfURL, err := func() (string, error) {
+		file, err := h.fileExtractor.OpenFile(fileHeader)
+		if err != nil {
+			return "", fmt.Errorf("unable to open uploaded PDF: %w", err)
+		}
+		defer file.Close()
+		return h.fileService.UploadPDFToS3(file, fileHeader, songID)
+	}()
 	if err != nil {
-		errors.HandleAPIError(c, errors.ErrValidationFailed, "Unable to open uploaded PDF")
-		return
-	}
-	defer file.Close()
-
-	pdfURL, err := h.fileService.UploadPDFToS3(file, fileHeader, songID)
-	if err != nil {
-		errors.HandleAPIError(c, err, "Failed to upload PDF")
+		errors.HandleAPIError(c, err, fmt.Sprintf("Failed to upload PDF for song %s", songID))
 		return
 	}
 
 	req := dto.CreateDocumentRequest{
 		Type:       docType,
 		Instrument: instruments,
-		PDFURL:     pdfURL,
 		SongID:     songID,
+		PDFURL:     pdfURL,
 	}
 
 	if err := dto.ValidateCreateDocumentRequest(req); err != nil {
@@ -87,9 +89,9 @@ func (h *DocumentHandler) CreateDocumentHandler(c *gin.Context) {
 		"song_id":     songID,
 	}).Info("Document created successfully")
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message":     "Document created successfully",
-		"document_id": documentID,
+	c.JSON(http.StatusCreated, dto.CreateDocumentResponse{
+		Message:    "Document created successfully",
+		DocumentID: documentID,
 	})
 }
 

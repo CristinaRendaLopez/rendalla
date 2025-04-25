@@ -8,6 +8,11 @@ type CreateDocumentRequest struct {
 	SongID     string   `json:"-"`
 }
 
+type CreateDocumentResponse struct {
+	Message    string `json:"message"`
+	DocumentID string `json:"document_id"`
+}
+
 type UpdateDocumentRequest struct {
 	Type       string   `json:"type,omitempty"`
 	Instrument []string `json:"instrument,omitempty"`

@@ -1,8 +1,14 @@
 package handlers_test
 
 import (
+	"bytes"
+	"fmt"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/textproto"
+
 	"github.com/CristinaRendaLopez/rendalla-backend/dto"
-	"github.com/CristinaRendaLopez/rendalla-backend/utils"
 )
 
 // Valid document data
@@ -65,26 +71,36 @@ const DocumentUpdateOnlyTypeJSON = `
 	"type": "score"
 }`
 
-var MultipartFieldsValid = map[string]string{
-	"type":         "score",
-	"instrument[]": "piano",
+func MockPDFFile() *multipart.FileHeader {
+	return &multipart.FileHeader{
+		Filename: "mock.pdf",
+		Header:   textproto.MIMEHeader{"Content-Type": []string{"application/pdf"}},
+		Size:     2048,
+	}
 }
 
-var MultipartFieldsInvalidInstrument = map[string]string{
-	"type":         "tablature",
-	"instrument[]": "", // invalid (empty)
+func MockInvalidFile() *multipart.FileHeader {
+	return &multipart.FileHeader{
+		Filename: "mock.txt",
+		Header:   textproto.MIMEHeader{"Content-Type": []string{"text/plain"}},
+		Size:     2048,
+	}
 }
 
-var MultipartFieldsInvalid = map[string]string{
-	"type": "",
-}
+func buildMultipartRequest(songID, docType string, instruments []string, fileHeader *multipart.FileHeader) (*http.Request, *multipart.FileHeader) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-var MultipartPDFMock = utils.TestFile{
-	Filename: "bohemian.pdf",
-	Content:  []byte("%PDF-1.4\nfake pdf content\n..."),
-}
+	_ = writer.WriteField("type", docType)
+	for _, inst := range instruments {
+		_ = writer.WriteField("instrument[]", inst)
+	}
 
-var MultipartPDFInvalid = utils.TestFile{
-	Filename: "not_a_pdf.txt",
-	Content:  []byte("just some text, not a pdf"),
+	part, _ := writer.CreateFormFile("pdf", fileHeader.Filename)
+	part.Write([]byte("PDF binary content"))
+	writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/songs/%s/documents", songID), body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req, fileHeader
 }

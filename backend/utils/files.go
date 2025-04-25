@@ -9,8 +9,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+type FileExtractor interface {
+	GetHeader(c *gin.Context, field string) (*multipart.FileHeader, error)
+	OpenFile(header *multipart.FileHeader) (multipart.File, error)
+}
+
+type GinFileExtractor struct{}
+
+func (g *GinFileExtractor) GetHeader(c *gin.Context, field string) (*multipart.FileHeader, error) {
+	return c.FormFile(field)
+}
+
+func (g *GinFileExtractor) OpenFile(header *multipart.FileHeader) (multipart.File, error) {
+	return header.Open()
+}
 
 type FileUploader interface {
 	UploadPDFToS3(file multipart.File, header *multipart.FileHeader, songID string) (string, error)

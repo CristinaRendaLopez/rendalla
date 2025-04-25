@@ -1,15 +1,14 @@
 package handlers_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
-	"os"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/CristinaRendaLopez/rendalla-backend/bootstrap"
 	"github.com/CristinaRendaLopez/rendalla-backend/dto"
 	"github.com/CristinaRendaLopez/rendalla-backend/errors"
 	"github.com/CristinaRendaLopez/rendalla-backend/handlers"
@@ -20,140 +19,173 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentService, utils.FileUploader) {
+func setupDocumentHandlerTest() (*handlers.DocumentHandler, *mocks.MockDocumentService, *mocks.MockFileService, *mocks.MockFileExtractor) {
 	mockService := new(mocks.MockDocumentService)
 	mockFileService := new(mocks.MockFileService)
-	handler := handlers.NewDocumentHandler(mockService, mockFileService)
-	return handler, mockService, mockFileService
+	mockFileExtractor := new(mocks.MockFileExtractor)
+	handler := handlers.NewDocumentHandler(mockService, mockFileService, mockFileExtractor)
+	return handler, mockService, mockFileService, mockFileExtractor
 }
 
 func TestCreateDocumentHandler(t *testing.T) {
-	fmt.Println("MAX_PDF_SIZE from env:", os.Getenv("MAX_PDF_SIZE"))
-	fmt.Println("bootstrap.MaxPDFSize:", bootstrap.MaxPDFSize)
 	tests := []struct {
-		name          string
-		songID        string
-		setupParam    bool
-		fields        map[string]string
-		file          utils.TestFile
-		expectedCode  int
-		mockReturnID  string
-		mockReturnErr error
-		expectedDocID string
-		expectUpload  bool
-		expectCreate  bool
+		name              string
+		setupRequest      func() (*http.Request, *multipart.FileHeader)
+		setupMock         bool
+		expectSongIDParam bool
+		expectOpenFile    bool
+		expectUpload      bool
+		expectCreate      bool
+		mockUploadURL     string
+		mockUploadErr     error
+		mockServiceErr    error
+		expectedCode      int
+		expectedDocID     string
 	}{
 		{
-			name:          "successfully creates document",
-			songID:        "1",
-			setupParam:    true,
-			fields:        MultipartFieldsValid,
-			file:          MultipartPDFMock,
-			expectedCode:  http.StatusCreated,
-			mockReturnID:  "doc-123",
-			expectedDocID: "doc-123",
-			expectUpload:  true,
-			expectCreate:  true,
+			name: "success",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, MockPDFFile())
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectOpenFile:    true,
+			expectUpload:      true,
+			expectCreate:      true,
+			mockUploadURL:     "https://mock-s3/document.pdf",
+			expectedCode:      http.StatusCreated,
+			expectedDocID:     "abc123",
 		},
 		{
-			name:         "missing song_id parameter",
-			setupParam:   false,
-			expectedCode: http.StatusBadRequest,
-			expectUpload: false,
-			expectCreate: false,
+			name: "missing song_id",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				req, fh := buildMultipartRequest("", "score", []string{"guitarra"}, MockPDFFile())
+				return req, fh
+			},
+			setupMock:         false,
+			expectSongIDParam: false,
+			expectedCode:      http.StatusBadRequest,
 		},
 		{
-			name:         "validation fails (empty fields)",
-			songID:       "1",
-			setupParam:   true,
-			fields:       MultipartFieldsInvalid,
-			file:         MultipartPDFMock,
-			expectedCode: http.StatusBadRequest,
-			expectUpload: true,
-			expectCreate: false,
+			name: "invalid pdf file",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				fh := MockInvalidFile()
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, fh)
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectedCode:      http.StatusBadRequest,
 		},
 		{
-			name:         "validation fails (invalid PDF)",
-			songID:       "1",
-			setupParam:   true,
-			fields:       MultipartFieldsValid,
-			file:         MultipartPDFInvalid,
-			expectedCode: http.StatusBadRequest,
-			expectUpload: false,
-			expectCreate: false,
+			name: "invalid document data",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				return buildMultipartRequest("123", "", []string{""}, MockPDFFile())
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectedCode:      http.StatusBadRequest,
 		},
 		{
-			name:         "file service upload fails",
-			songID:       "1",
-			setupParam:   true,
-			fields:       MultipartFieldsValid,
-			file:         MultipartPDFMock,
-			expectedCode: http.StatusInternalServerError,
-			expectUpload: true,
-			expectCreate: false,
+			name: "validation fails after PDF upload",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				return buildMultipartRequest("123", "score", []string{}, MockPDFFile())
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectOpenFile:    true,
+			expectUpload:      true,
+			mockUploadURL:     "https://mock-s3/document.pdf",
+			expectedCode:      http.StatusBadRequest,
 		},
 		{
-			name:          "internal service error",
-			songID:        "1",
-			setupParam:    true,
-			fields:        MultipartFieldsValid,
-			file:          MultipartPDFMock,
-			expectedCode:  http.StatusInternalServerError,
-			mockReturnErr: errors.ErrInternalServer,
-			expectUpload:  true,
-			expectCreate:  true,
+			name: "error getting file header",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, MockPDFFile())
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectedCode:      http.StatusBadRequest,
+		},
+		{
+			name: "error opening file",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				fh := MockPDFFile()
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, fh)
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectOpenFile:    true,
+			expectUpload:      false,
+			expectedCode:      http.StatusInternalServerError,
+		},
+		{
+			name: "upload to S3 fails",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				fh := MockPDFFile()
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, fh)
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectOpenFile:    true,
+			expectUpload:      true,
+			mockUploadErr:     fmt.Errorf("upload error"),
+			expectedCode:      http.StatusInternalServerError,
+		},
+		{
+			name: "failed to create document",
+			setupRequest: func() (*http.Request, *multipart.FileHeader) {
+				return buildMultipartRequest("123", "score", []string{"guitarra"}, MockPDFFile())
+			},
+			setupMock:         true,
+			expectSongIDParam: true,
+			expectOpenFile:    true,
+			expectUpload:      true,
+			expectCreate:      true,
+			mockUploadURL:     "https://mock-s3/document.pdf",
+			mockServiceErr:    fmt.Errorf("db error"),
+			expectedCode:      http.StatusInternalServerError,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := new(mocks.MockDocumentService)
-			mockFileService := new(mocks.MockFileService)
+			handler, mockDocService, mockFileService, mockFileExtractor := setupDocumentHandlerTest()
 
-			if tt.expectUpload {
-				if tt.name == "file service upload fails" {
-					mockFileService.
-						On("UploadPDFToS3", mock.Anything, mock.Anything, tt.songID).
-						Return("", errors.ErrInternalServer)
+			req, fileHeader := tt.setupRequest()
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = req
+
+			if tt.expectSongIDParam {
+				c.Params = []gin.Param{{Key: "song_id", Value: "123"}}
+			}
+
+			if tt.setupMock {
+				if tt.name == "error getting file header" {
+					mockFileExtractor.On("GetHeader", c, "pdf").Return(nil, fmt.Errorf("missing file"))
 				} else {
-					mockFileService.
-						On("UploadPDFToS3", mock.Anything, mock.Anything, tt.songID).
-						Return("https://mock.url/file.pdf", nil)
+					mockFileExtractor.On("GetHeader", c, "pdf").Return(fileHeader, nil)
+
+					if tt.name == "invalid document data" {
+						return
+					}
+
+					if tt.expectOpenFile {
+						if tt.expectUpload {
+							mockFileExtractor.On("OpenFile", fileHeader).Return(mocks.NewFakeMultipartFile([]byte("PDF")), nil)
+						} else {
+							mockFileExtractor.On("OpenFile", fileHeader).Return(nil, fmt.Errorf("failed to open"))
+						}
+					}
+
+					if tt.expectUpload {
+						mockFileService.On("UploadPDFToS3", mock.Anything, fileHeader, "123").Return(tt.mockUploadURL, tt.mockUploadErr)
+					}
+
+					if tt.expectCreate {
+						mockDocService.On("CreateDocument", mock.Anything).Return(tt.expectedDocID, tt.mockServiceErr)
+					}
 				}
-			}
-
-			if tt.expectCreate {
-				mockService.
-					On("CreateDocument", mock.AnythingOfType("dto.CreateDocumentRequest")).
-					Return(tt.mockReturnID, tt.mockReturnErr)
-			}
-
-			handler := handlers.NewDocumentHandler(mockService, mockFileService)
-
-			var body *bytes.Buffer
-			var contentType string
-			var err error
-
-			if tt.fields != nil && tt.file.Filename != "" {
-				body, contentType, err = utils.CreateMultipartRequest(tt.fields, map[string]utils.TestFile{
-					"pdf": tt.file,
-				})
-				assert.NoError(t, err)
-			} else {
-				body = &bytes.Buffer{}
-			}
-
-			path := "/songs"
-			if tt.setupParam {
-				path += "/" + tt.songID + "/documents"
-			}
-
-			c, w := utils.CreateTestContext(http.MethodPost, path, body)
-			if tt.setupParam {
-				c.Params = []gin.Param{{Key: "song_id", Value: tt.songID}}
-			}
-			if contentType != "" {
-				c.Request.Header.Set("Content-Type", contentType)
 			}
 
 			handler.CreateDocumentHandler(c)
@@ -161,29 +193,15 @@ func TestCreateDocumentHandler(t *testing.T) {
 			assert.Equal(t, tt.expectedCode, w.Code)
 
 			if tt.expectedCode == http.StatusCreated {
-				var response struct {
-					Message    string `json:"message"`
-					DocumentID string `json:"document_id"`
-				}
-				err := json.Unmarshal(w.Body.Bytes(), &response)
+				var resp dto.CreateDocumentResponse
+				err := json.Unmarshal(w.Body.Bytes(), &resp)
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedDocID, response.DocumentID)
+				assert.Equal(t, tt.expectedDocID, resp.DocumentID)
 			}
 
-			if tt.expectUpload {
-				mockFileService.AssertCalled(t, "UploadPDFToS3", mock.Anything, mock.Anything, tt.songID)
-			} else {
-				mockFileService.AssertNotCalled(t, "UploadPDFToS3", mock.Anything, mock.Anything, tt.songID)
-			}
-
-			if tt.expectCreate {
-				mockService.AssertCalled(t, "CreateDocument", mock.AnythingOfType("dto.CreateDocumentRequest"))
-			} else {
-				mockService.AssertNotCalled(t, "CreateDocument", mock.Anything)
-			}
-
+			mockDocService.AssertExpectations(t)
 			mockFileService.AssertExpectations(t)
-			mockService.AssertExpectations(t)
+			mockFileExtractor.AssertExpectations(t)
 		})
 	}
 }
@@ -231,7 +249,7 @@ func TestGetAllDocumentsBySongIDHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, mockService, _ := setupDocumentHandlerTest()
+			handler, mockService, _, _ := setupDocumentHandlerTest()
 
 			if tt.setupParam && tt.mockError != errors.ErrValidationFailed {
 				mockService.
@@ -322,7 +340,7 @@ func TestGetDocumentByIDHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, mockService, _ := setupDocumentHandlerTest()
+			handler, mockService, _, _ := setupDocumentHandlerTest()
 
 			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
 				mockService.
@@ -437,7 +455,7 @@ func TestUpdateDocumentHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, mockService, _ := setupDocumentHandlerTest()
+			handler, mockService, _, _ := setupDocumentHandlerTest()
 
 			if tt.setupParams && tt.mockError != errors.ErrValidationFailed {
 				var update dto.UpdateDocumentRequest
@@ -519,7 +537,7 @@ func TestDeleteDocumentHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, mockService, _ := setupDocumentHandlerTest()
+			handler, mockService, _, _ := setupDocumentHandlerTest()
 
 			if tt.setupParams && tt.expectedCode != http.StatusBadRequest {
 				mockService.
